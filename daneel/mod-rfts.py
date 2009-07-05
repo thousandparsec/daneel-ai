@@ -20,6 +20,20 @@ rules = ["turn(X) ==> X % 3 == 0 | productionturn",
 
 def startTurn(cache, daneelproblem, delta=0):
     info(daneelproblem)
+    variables = {}
+    whoami = {'name': 'whoami', 'value': daneelproblem.getVariable('whoami'), 'fixed': 1, 'single': True}
+    objects = {'name': 'objects', 'value': daneelproblem.getVariable('objects'), 'fixed': False, 'single': False}
+    vars = [objects, whoami]
+    cons = []
+    
+    cons_func = lambda f: FunctionConstraint(f)
+    params = lambda objects,whoami: myPlanets(objects,whoami)
+    cons.append({'func': cons_func, 'params': params})
+    
+    
+    solve(daneelproblem,cons,vars)
+    
+    sys.exit()
     solveMyPlanets(daneelproblem)
     return
     
@@ -48,7 +62,30 @@ def myPlanets(object, player_id):
         return True
     
 
+def solve(store, cons, varlist):
+#    variables = {}
+    solvelist = []
+    prob = Problem()
+    for item in varlist:
+#         variables['%s' % item['name']] = item['value']
+         prob.addVariable('%s' % item['name'], item['value'])
+         solvelist.append('%s' % item['name'])
+         if item['fixed'] != False:
+             prob.addConstraint(lambda x: x == eval('%s' % item['fixed']), ['%s' % item['name']])
+             
+    for item in cons:
+        if item['func'] and item['params']:
+            try:
+                prob.addConstraint(item['func'](item['params']), solvelist)
+            except:
+                pass
+        else:
+            prob.addConstraint(item, solvelist)
 
+    
+    sol = prob.getSolutions()
+    print sol
+    return sol
                
 def solveMyPlanets(daneelproblem):
     myPlanetProblem = Problem()
