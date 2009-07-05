@@ -60,25 +60,22 @@ class FakeStdOut(object):
 if __name__=='__main__':
 	global state_dir
 	list_of_states = getPickledStates()
-	
-	# print list_of_states
-	
-	# FIXME remove the hard codings here
-	rulesfile='risk'
+
 	turns = 0
 	connection = None
-	verbosity = 1
+	
 	for state in list_of_states:
 		basename = state.partition('.')
 		output = state_dir + basename[0]  + ".out"
 		profile = state_dir + state  + ".profile"
 		
-#		tested_state = picklegamestate.GameState().unpickle(state_dir + state)
-		
-		print state_dir + state
-		cache = Cache('test')
+		cache = Cache('dummy_val')
 		cache.file = state_dir + state
 		cache.load()
+
+		filesplit = re.split('\_-_+', state)	
+		rulesfile = filesplit[0]
+		verbosity = int(filesplit[1])
 
 		cProfile.runctx('gameLoopBenchMark(rulesfile,turns,connection,cache,verbosity)', globals(), locals(), profile)	
 		
