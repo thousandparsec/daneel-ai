@@ -1,6 +1,8 @@
 import logging
 import tp.client.cache
 from tp.netlib.objects import OrderDescs
+from constraint import *
+from problem import *
 
 constraints = """adjacent(int,int)*
 reinforcements(int)
@@ -13,18 +15,24 @@ rules = """adjacentset @ adjacent(A,B) \ adjacent(A,B) <=> pass
 addarmies @ resources(P,1,N,_) ==> armies(P,N)""".split('\n')
 
 def init(cache,rulesystem,connection):
-    planets, systems = {}, {}
+    planets, systems, adjacent = {}, {}, []
+    planet_list = []
+    
     #two loops because we want to make sure all planet positions are stored first
     for obj in cache.objects.itervalues():
         if obj.subtype == 3:
             planets[obj.parent] = obj.id
+            planet_list. append ( obj.id)
     for obj in cache.objects.itervalues():
         if obj.subtype == 2:
             systems[obj.pos] = planets[obj.id]
     for obj in cache.objects.itervalues():
         if obj.subtype == 5:
-            rulesystem.addConstraint("adjacent(%i,%i)"%(systems[obj.start],systems[obj.end]))
-            rulesystem.addConstraint("adjacent(%i,%i)"%(systems[obj.end],systems[obj.start]))
+            adjacent.extend( [(systems[obj.start],systems[obj.end]), (systems[obj.end],systems[obj.start]),])
+    
+    rulesystem.setConstant("adjacent_planets", adjacent)
+    return
+
 
 
 def startTurn(cache,store, delta = 0):
