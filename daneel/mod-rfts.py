@@ -1,5 +1,9 @@
 import tp.client.cache
 from tp.netlib.objects import OrderDescs
+import sys
+import logging
+import daneel_ai
+from constraint import *
 
 constraints = """fleetbuildingturn
 productionturn
@@ -10,6 +14,52 @@ order_colonise(int,int)""".split('\n')
 
 rules = ["turn(X) ==> X % 3 == 0 | productionturn",
         "turn(X) ==> X % 3 != 2 | fleetbuildingturn"]
+
+
+        
+
+def startTurn(cache, daneelproblem, delta=0):
+    info(daneelproblem)
+    solveMyPlanets(daneelproblem)
+    return
+    
+
+
+def info(problem):
+    turn = problem.getVariable('turn')
+    logging.getLogger("TURN").info('The turn is %s', turn.pop())   
+   
+def isPlanet(object):
+    return object['subtype'] == 3
+    
+def myObject(player_id, object):
+    try:
+        return player_id == object['owner']
+    except:
+        return False
+    
+def myPlanets(object, player_id):
+
+    if not (myObject(player_id, object)):
+        return False
+    if not (isPlanet(object)):
+        return False
+    else:
+        return True
+    
+
+
+               
+def solveMyPlanets(daneelproblem):
+    myPlanetProblem = Problem()
+    whoami = daneelproblem.getVariable('whoami').pop()
+    objects = daneelproblem.getVariable('objects')
+    myPlanetProblem.addVariable('objects', objects)
+    
+    p = lambda o: myPlanets(o,whoami)
+    myPlanetProblem.addConstraint( FunctionConstraint(p), ['objects'])
+    return myPlanetProblem.getSolutions()
+    
 
 def endTurn(cache,rulesystem,connection):
     orders = rulesystem.findConstraint("order_move(int,int)")
