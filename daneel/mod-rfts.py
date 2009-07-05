@@ -21,8 +21,8 @@ rules = ["turn(X) ==> X % 3 == 0 | productionturn",
 def startTurn(cache, daneelproblem, delta=0):
     info(daneelproblem)
     variables = {}
-    whoami = {'name': 'whoami', 'value': daneelproblem.getVariable('whoami'), 'fixed': 1, 'single': True}
-    objects = {'name': 'objects', 'value': daneelproblem.getVariable('objects'), 'fixed': False, 'single': False}
+    whoami = {'name': 'whoami', 'value': daneelproblem.getVariable('whoami'), 'fixed': False}
+    objects = {'name': 'objects', 'value': daneelproblem.getVariable('objects'), 'fixed': False}
     vars = [objects, whoami]
     cons = []
     
@@ -42,9 +42,65 @@ def startTurn(cache, daneelproblem, delta=0):
 def info(problem):
     turn = problem.getVariable('turn')
     logging.getLogger("TURN").info('The turn is %s', turn.pop())   
-   
+
+
+def isScout(object):
+    if not( isFleet(object)):
+        return False
+    else:
+        try:
+            return object['name'] == "Scouting"
+        except:
+            return False
+
+def isColony(object):
+    if not( isFleet(object)):
+        return False
+    else:
+        try:
+            return object['name'] == "Colonizing"
+        except:
+            return False
+
+
+
+
+def isUniverse(object):
+    try:
+        return object['subtype'] == 0
+    except:
+        return False
+    
+def isGalaxy(object):
+    try:
+        return object['subtype'] == 1
+    except:
+        return False
+    
+def isStar(object):
+    try:
+        return object['subtype'] == 2
+    except:
+        return False
+    
 def isPlanet(object):
-    return object['subtype'] == 3
+    try:
+        return object['subtype'] == 3
+    except:
+        return False
+    
+def isFleet(object):
+    try:
+        return object['subtype'] == 4
+    except:
+        return False
+
+def isWormhole(object):
+    try:
+        return object['subtype'] == 5
+    except:
+        return False
+
     
 def myObject(player_id, object):
     try:
@@ -63,16 +119,19 @@ def myPlanets(object, player_id):
     
 
 def solve(store, cons, varlist):
-#    variables = {}
     solvelist = []
     prob = Problem()
+    
     for item in varlist:
-#         variables['%s' % item['name']] = item['value']
+         if item['fixed']:
+             item['value'] == item['fixed']
+         else:
+             pass
+        
+    for item in varlist:
          prob.addVariable('%s' % item['name'], item['value'])
          solvelist.append('%s' % item['name'])
-         if item['fixed'] != False:
-             prob.addConstraint(lambda x: x == eval('%s' % item['fixed']), ['%s' % item['name']])
-             
+
     for item in cons:
         if item['func'] and item['params']:
             try:
