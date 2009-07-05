@@ -1,5 +1,8 @@
 import tp.client.cache
 from tp.netlib.objects import OrderDescs
+import sys
+from constraint import *
+import logging
 
 constraints = """player(int,unicode)
 subtype(int,int)
@@ -42,38 +45,41 @@ def getLastTurnTime(cache,delta=0):
             else:
                 pass
         return latest_time
-
-def startTurn(cache,store,delta=0):
     
+def startTurn(cache,store,delta=0):
+    player, whoami,turn,objects = [], [], [], []
+    dict_of_lists = {'player': player, 'whoami': whoami, 'turn': turn, 'objects': objects}
+    store_list = ['subtype', 'name', 'size', 'pos', 'vel', 'owner', 'contains', 'resources', 'ships', 'damage', 'start', 'end']
+
         
     last_time = getLastTurnTime(cache,delta)       
-    for (k,v) in cache.players.items():
-        store.addConstraint("player(%i,%s)" % (k,v.name))
+    for (k,v) in cache.players.items():      
+        player.append ( (k, v.name) )
+          
+    whoami.append (cache.players[0].id)
+    turn.append(cache.objects[0].turn)
+
         
-    store.addConstraint("whoami(%i)" % cache.players[0].id)
-    store.addConstraint("turn(%i)"%cache.objects[0].turn)
     for (k,v) in cache.objects.items():
+        element = {}
         if delta and cache.objects.times[k] < last_time:
             pass
         else:
-            store.addConstraint("subtype(%i,%i)"%(k,v.subtype))
-            store.addConstraint("name(%i,%s)"%(k,v.name))
-            store.addConstraint("size(%i,%i)"%(k,v.size))
-            store.addConstraint("pos(%i,%i,%i,%i)"%((k,) + v.pos))
-            store.addConstraint("vel(%i,%i,%i,%i)"%((k,) + v.vel))
-            for child in v.contains:
-                store.addConstraint("contains(%i,%i)"%(k,child))
-            if hasattr(v,"owner"):
-                store.addConstraint("owner(%i,%i)"%(k,v.owner))
-            if hasattr(v,"resources"):
-                for res in v.resources:
-                    store.addConstraint("resources(%i,%i,%i,%i,%i)"%((k,)+res))
-            if hasattr(v,"ships"):
-                for (t,num) in v.ships:
-                    store.addConstraint("ships(%i,%i,%i)"%(k,t,num))
-            if hasattr(v,"damage"):
-                store.addConstraint("damage(%i,%i)"%(k,v.damage))
-            if hasattr(v,"start"):
-                store.addConstraint("start(%i,%i,%i,%i)"%((k,)+v.start))
-            if hasattr(v,"end"):
-                store.addConstraint("end(%i,%i,%i,%i)"%((k,)+v.end))
+                element['id'] = k
+                element['time_modified'] = cache.objects.times[k]
+                for variable in dir(v):
+                    if variable == 'resources':
+                        logging.getLogger('RESOURCES').debug( eval('v.resources[0][1]') )
+                    if variable in store_list:
+                        try:
+                            element['%s' %variable.__str__()] = eval('v.%s' % variable)
+                        except:
+                            pass
+                    else:
+                        pass
+                    
+        objects.append( element)
+    
+    store.variableStoreAppend(dict_of_lists)
+
+    return
