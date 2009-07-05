@@ -23,14 +23,12 @@ import daneel
 from daneel.rulesystem import RuleSystem, BoundConstraint
 import picklegamestate
 import cPickle
+from constraint import *
+from problem import *
 
 version = (0, 0, 3)
 mods = []
-
-if hasattr(sys, "frozen"):
-    installpath = os.path.dirname(unicode(sys.executable, sys.getfilesystemencoding( )))
-else:
-    installpath = os.path.realpath(os.path.dirname(__file__))
+debug = 1
 
 def callback(mode, state, message="", todownload=None, total=None, amount=None):
     logging.getLogger("daneel").debug("Downloading %s %s Message:%s", mode, state, message)
@@ -68,172 +66,96 @@ def connect(uri='tp://daneel-ai:cannonfodder@localhost/tp'):
     cache = Cache(Cache.key(host, username))
     return connection, cache
 
-def getDataDir():
-    if hasattr(sys, "frozen"):
-        return os.path.join(installpath, "share", "daneel-ai")
-    if "site-packages" in daneel.__file__:
-        datadir = os.path.join(os.path.dirname(daneel.__file__), "..", "..", "..", "..", "share", "daneel-ai")
-    else:
-        datadir = os.path.join(os.path.dirname(daneel.__file__), "..")
-    return datadir
-   
-
-
-def createRuleSystem(rulesfile,verbosity,cache,connection):
-    global mods
-    cons,rules = [],[]
-    funcs = {}
-
-    rf = open(os.path.join(getDataDir(), 'rules', rulesfile))
-    l = stripline(rf.readline())
-    while l != "[Modules]":
-        l = stripline(rf.readline())
-    l = stripline(rf.readline())
-    while l != "[Constraints]":
-        if l != "":
-            m = getattr(__import__("daneel."+l), l)
-            print l, m
-            mods.append(m)
-            try:
-                cons.extend(m.constraints)
-            except AttributeError:
-                pass
-            try:
-                rules.extend(m.rules)
-            except AttributeError:
-                pass
-            try:
-                exec("".join(m.functions),funcs)
-            except AttributeError:
-                pass
-        l = stripline(rf.readline())
-    l = stripline(rf.readline())
-    while l != "[Rules]":
-        if l != "": cons.append(l)
-        l = stripline(rf.readline())
-    l = stripline(rf.readline())
-    while l != "[Functions]":
-        if l != "": rules.append(l)
-        l = stripline(rf.readline())
-    exec("".join(rf.readlines()),funcs)
-    funcs['cache'] = cache
-    
-    if connection != None:
-        funcs['connection'] = connection
-
-    return RuleSystem(cons,rules,funcs,verbosity)
-
-def stripline(line):
-    if line[0] == "#": return ""
-    return line.strip()
-
-def startTurn(cache,store, delta):
-    for m in mods:
-        try:
-            m.startTurn(cache,store, delta)
-        except AttributeError:
-            pass
-
-def endTurn(cache,rulesystem,connection):
-    for m in mods:
-        try:
-            m.endTurn(cache,rulesystem,connection)
-        except AttributeError:
-            pass
-
-def saveGame(cache):
-	root_dir = getDataDir()
-	save_dir = root_dir + "/states/"
-	writeable = checkSaveFolderWriteable(root_dir, save_dir)
-	# NB assumes there is enough space to write
-	if not writeable:
-		logging.getLogger("daneel").error("Cannot save information")
-	else:
-		cache.file = save_dir + time.time().__str__() + ".gamestate"
-		cache.save()
-
-
-def checkSaveFolderWriteable(root_dir, save_dir):	
-	dir_exists = os.access(save_dir, os.F_OK)
-	dir_writeable = os.access(save_dir, os.W_OK)
-	dir_root_writeable = os.access(root_dir, os.W_OK)
-	if dir_exists and dir_writeable:
-		return True
-	if dir_exists and not dir_writeable:
-		return False
-	if dir_root_writeable:
-		os.mkdir(save_dir)
-		return True
-	else:
-		return False
-
-def init(cache,rulesystem,connection):
-    for m in mods:
-        try:
-            m.init(cache,rulesystem,connection)
-        except AttributeError:
-            pass
-
-def pickle(variable, file_name):
-	file = open(file_name, 'wb')
-	cPickle.dump(variable, file)
-	file.close()
-	return
-
-def gameLoop(rulesfile,turns=-1,uri='tp://daneel-ai:cannonfodder@localhost/tp',verbosity=1,benchmark=0):
+def setLoggingLevel(verbosity, stream=sys.stdout):
     try:
         level = {0:logging.WARNING,1:logging.INFO,2:logging.DEBUG}[verbosity]
     except KeyError:
         level = 1
     fmt = "%(asctime)s [%(levelname)s] %(name)s:%(message)s"
     logging.basicConfig(level=level,stream=sys.stdout,format=fmt)
-    connection, cache = connect(uri)
-    
-#    state = picklegamestate.GameState(rulesfile,turns,None,None,verbosity)
-#    state.pickle("./states/" + time.time().__str__() + ".gamestate")
-	
-    gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,benchmark)
+    return
 
-def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,benchmark):		
-    rulesystem = createRuleSystem(rulesfile,verbosity,cache,connection)
+
+def startTurn(cache,store, delta):
+    for m in store.mods:
+        try:
+             m.startTurn(cache,store, delta)
+        except AttributeError:
+            pass
+           
+    return list
+
+def endTurn(cache,rulesystem,connection):
+    for m in rulesystem.mods:
+        try:
+            m.endTurn(cache,rulesystem,connection)
+        except AttributeError:
+            pass
+
+def init(cache,rulesystem,connection):
+    for m in rulesystem.mods:
+        try:
+            m.init(cache,rulesystem,connection)
+        except AttributeError:
+            pass
+
+def gameLoop(rulesfile,turns=-1,uri='tp://daneel-ai:cannonfodder@localhost/tp',verbosity=1,save=0):
+    setLoggingLevel(verbosity)
+    connection, cache = connect(uri)
+    gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,save)
+
+def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,save):
+			
+    rulesystem = DaneelProblem(rulesfile,verbosity)
     logging.getLogger("daneel").info("Downloading all data")
     cache.update(connection,callback)
 #    state = picklegamestate.GameState(rulesfile,turns,None,cache,verbosity)
  #   state.pickle("./states/" + time.time().__str__() + ".gamestate")
 
     init(cache,rulesystem,connection)
+    
     delta = True
     while turns != 0:
         turns = turns - 1
         logging.getLogger("daneel").info("Downloading updates")
         cache.update(connection,callback)
         # store the cache
-        saveGame(cache)      
+        if save == '1':
+            print 'saving'
+            saveGame(cache,rulesfile,verbosity) 
+        
         lastturn = cache.objects[0].turn
 
         startTurn(cache,rulesystem,delta)
         rulesystem.addConstraint("cacheentered")
         endTurn(cache,rulesystem,connection)
+        rulesystem.clearStore(delta)
 
-        rulesystem.clearStore()
+        if(debug):
+            time.sleep(10)
+            
         connection.turnfinished()
+       
         waitfor = connection.time()
         logging.getLogger("daneel").info("Awaiting end of turn %s est: (%s s)..." % (lastturn,waitfor))
         while lastturn == connection.get_objects(0)[0].turn:
             waitfor = connection.time()
             time.sleep( max(1,waitfor / 10))
 
-def gameLoopBenchMark(rulesfile,turns,connection,cache,verbosity):		
-    rulesystem = createRuleSystem(rulesfile,verbosity,cache,connection)
-    logging.getLogger("daneel").info("Downloading all data")
-
-    init(cache,rulesystem,connection)
-    delta = False
-    startTurn(cache,rulesystem,delta)
-    rulesystem.addConstraint("cacheentered")
-    endTurn(cache,rulesystem,None)
-    rulesystem.clearStore()
+def gameLoopBenchMark(rulesfile,turns,connection,cache,verbosity):
+    setLoggingLevel(verbosity)   
+    problem = DaneelProblem(rulesfile,verbosity)
+    logging.getLogger("daneel").info("Running BenchMark")
+    init(cache,problem,connection)
     
+    delta = False
+    startTurn(cache,problem,delta)
+    
+    if(debug):
+        sys.exit()
+        
+    endTurn(cache,rulesystem,None)
+    rulesystem.clearStore(delta)    
     return
 
 
@@ -249,9 +171,10 @@ if __name__ == "__main__":
                       help="Connect to specified URI [default %default]")
     parser.add_option("-v", action="count", dest="verbosity", default=1,
                       help="More verbose output. -vv and -vvv increase output even more.")
-    parser.add_option("-b", dest="benchmark", default=0,
-                      help="Runs the program in benchmarking mode.")
+    parser.add_option("-s", dest="save", default=0,
+                      help="Saves the game for benchmarking.")
 
 
     (options, args) = parser.parse_args()
-    gameLoop(options.filename,turns=options.numturns,uri=options.uri,verbosity=options.verbosity,benchmark=options.benchmark)
+    
+    gameLoop(options.filename,turns=options.numturns,uri=options.uri,verbosity=options.verbosity,save=options.save)
