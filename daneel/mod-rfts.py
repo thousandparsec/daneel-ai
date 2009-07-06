@@ -4,6 +4,9 @@ import sys
 import logging
 import daneel_ai
 from constraint import *
+from problem import *
+
+debug = 1
 
 constraints = """fleetbuildingturn
 productionturn
@@ -16,35 +19,75 @@ rules = ["turn(X) ==> X % 3 == 0 | productionturn",
         "turn(X) ==> X % 3 != 2 | fleetbuildingturn"]
 
 
-        
 
 def startTurn(cache, daneelproblem, delta=0):
     info(daneelproblem)
     variables = {}
-    whoami = {'name': 'whoami', 'value': daneelproblem.getVariable('whoami'), 'fixed': False}
-    objects = {'name': 'objects', 'value': daneelproblem.getVariable('objects'), 'fixed': False}
-    vars = [objects, whoami]
-    cons = []
     
-    cons_func = lambda f: FunctionConstraint(f)
-    params = lambda objects,whoami: myPlanets(objects,whoami)
-    cons.append({'func': cons_func, 'params': params})
+    func = lambda objects,whoami: myPlanets(objects,whoami)
+    func_vars = ['objects', 'whoami']
+    myplanets = Rule(store= daneelproblem, 
+                name='myplanets', 
+                vars=[{'varname': 'whoami', 'type':'variable'}, {'varname': 'objects', 'type':'variable'}], 
+                cons=[{'func': func, 'func_vars': func_vars}])
+    
+    daneelproblem.addVariableRule({myplanets.getName(): myplanets})
+   
+    func = lambda object: isStar(object)
+    func_vars =['objects']    
+    stars = Rule(store = daneelproblem,
+                 name='stars',
+                 vars=[{'varname': 'objects', 'type':'variable'}],
+                 cons=[{'func': func, 'func_vars': func_vars}])
+    
+    daneelproblem.addVariableRule({stars.getName(): stars})
+
+    func = lambda object: isScoutShip(object)
+    func_vars =['objects']    
+    scouts = Rule(store = daneelproblem,
+                 name='scouts',
+                 vars=[{'varname': 'objects', 'type':'variable'}],
+                 cons=[{'func': func, 'func_vars': func_vars}])
+    
+    daneelproblem.addVariableRule({scouts.getName(): scouts})
+    
+    func = lambda object: isColonyShip(object)
+    func_vars =['objects']    
+    colonyships = Rule(store = daneelproblem,
+                 name='colonyships',
+                 vars=[{'varname': 'objects', 'type':'variable'}],
+                 cons=[{'func': func, 'func_vars': func_vars}])
+    
+    daneelproblem.addVariableRule({colonyships.getName(): colonyships})
     
     
-    solve(daneelproblem,cons,vars)
+    # TODO: ORDER SELECTION STILL INCOMPLETE
     
-    sys.exit()
-    solveMyPlanets(daneelproblem)
+    num_stars = len(stars.getsol())
+    if ( num_stars > 10):
+        #TODO:
+        # order_buildfleet(P,((1,1),),"Scouting"
+        pass
+    
+    for item in myplanets.getsol():
+        # TODO:
+        #order_produce(P,((7,1),))
+        pass
+    
+    if(debug):
+        sys.exit()
+    
+    
     return
     
 
 
 def info(problem):
-    turn = problem.getVariable('turn')
+    turn = problem.getVariableRuleSolutions('turn')
     logging.getLogger("TURN").info('The turn is %s', turn.pop())   
 
 
-def isScout(object):
+def isScoutShip(object):
     if not( isFleet(object)):
         return False
     else:
@@ -53,17 +96,14 @@ def isScout(object):
         except:
             return False
 
-def isColony(object):
+def isColonyShip(object):
     if not( isFleet(object)):
         return False
     else:
         try:
-            return object['name'] == "Colonizing"
+            return object['name'] == "Colonization"
         except:
             return False
-
-
-
 
 def isUniverse(object):
     try:
@@ -109,54 +149,14 @@ def myObject(player_id, object):
         return False
     
 def myPlanets(object, player_id):
-
     if not (myObject(player_id, object)):
         return False
     if not (isPlanet(object)):
         return False
     else:
         return True
-    
-
-def solve(store, cons, varlist):
-    solvelist = []
-    prob = Problem()
-    
-    for item in varlist:
-         if item['fixed']:
-             item['value'] == item['fixed']
-         else:
-             pass
-        
-    for item in varlist:
-         prob.addVariable('%s' % item['name'], item['value'])
-         solvelist.append('%s' % item['name'])
-
-    for item in cons:
-        if item['func'] and item['params']:
-            try:
-                prob.addConstraint(item['func'](item['params']), solvelist)
-            except:
-                pass
-        else:
-            prob.addConstraint(item, solvelist)
-
-    
-    sol = prob.getSolutions()
-    print sol
-    return sol
-               
-def solveMyPlanets(daneelproblem):
-    myPlanetProblem = Problem()
-    whoami = daneelproblem.getVariable('whoami').pop()
-    objects = daneelproblem.getVariable('objects')
-    myPlanetProblem.addVariable('objects', objects)
-    
-    p = lambda o: myPlanets(o,whoami)
-    myPlanetProblem.addConstraint( FunctionConstraint(p), ['objects'])
-    return myPlanetProblem.getSolutions()
-    
-
+     
+     
 def endTurn(cache,rulesystem,connection):
     orders = rulesystem.findConstraint("order_move(int,int)")
     for order in orders:
