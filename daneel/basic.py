@@ -2,6 +2,7 @@ import tp.client.cache
 from tp.netlib.objects import OrderDescs
 import sys
 from constraint import *
+from problem import *
 import logging
 
 constraints = """player(int,unicode)
@@ -48,7 +49,6 @@ def getLastTurnTime(cache,delta=0):
     
 def startTurn(cache,store,delta=0):
     player, whoami,turn,objects = [], [], [], []
-    dict_of_lists = {'player': player, 'whoami': whoami, 'turn': turn, 'objects': objects}
     store_list = ['subtype', 'name', 'size', 'pos', 'vel', 'owner', 'contains', 'resources', 'ships', 'damage', 'start', 'end']
 
         
@@ -77,9 +77,15 @@ def startTurn(cache,store,delta=0):
                             pass
                     else:
                         pass
-                    
         objects.append( element)
     
-    store.variableStoreAppend(dict_of_lists)
+    
+    playerRule = KnownRule('player', player)
+    whoamiRule = KnownRule('whoami', whoami)
+    turnRule = KnownRule('turn', turn)
+    objectsRule = KnownRule('objects', objects)
+    dict_of_lists = {'player': playerRule, 'whoami': whoamiRule, 'turn': turnRule, 'objects': objectsRule}
+    
+    store.addVariableRule(dict_of_lists)
 
     return
