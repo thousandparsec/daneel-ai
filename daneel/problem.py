@@ -11,46 +11,55 @@ class DaneelProblem(Problem):
     def __init__(self, rulesfile, verbosity):
         Problem.__init__(self)
         self.verb = verbosity
-        self._constants = {}
-        self._variableStore = {}
+        # Rules where the result can be carried over
+        # each turn 
+        self._constantRules = {}
+        self._variableRules = {}
         self.mods = createRuleSystem(rulesfile)
          
    
-    def variableStoreAppend(self, dict):
+    def addVariableRule(self, dict):
         for (k,v) in dict.items():
-            if not (k in self._variableStore):
-                self._variableStore[k] = v
+            if not (k in self._variableRules):
+                self._variableRules[k] = v
             else:
                 raise ValueError, "Tried to insert duplicated entry %s" % \
                                   repr(k)        
         return
     
     
-    def getVariable(self, name):
-        if not (name in self._variableStore):
+    def getVariableRule(self, name):
+        if not (name in self._variableRules):
             raise KeyError, "Value not found: %s" % \
                             repr(name)
         else:
-            return self._variableStore[name]
+            return self._variableRules[name]
+
+    def getVariableRuleSolutions(self, name):
+        if not (name in self._variableRules):
+            raise KeyError, "Value not found: %s" % \
+                            repr(name)
+        else:
+            return self._variableRules[name].getsol()
     
         
     def resetVaribles(self):
-        self._variables.clear()
+        self._variableRules = {}
         return
         
     def resetConstraints(self):
         del self._constraints[:]
         return
         
-    def getConstants(self):
-        return self._constants
+    def getConstantRules(self):
+        return self._constantRules
     
     def getConstant(self, name):
         if not (name in self._constants):
             raise KeyError, "Value not found: %s" % \
                             repr(name)
         else:
-            return self.constants[name]  
+            return self.constantRules[name]  
     
     def setConstant(self, name, domain):
         if name in self._constants:
@@ -128,4 +137,80 @@ def checkSaveFolderWriteable(root_dir, save_dir):
         return True
     else:
         return False
+    
+    
+
+class KnownRule(object):
+    
+    def __init__(self,name,domain):
+        self._name = name
+        self._solutions = domain
+    def getsol(self):
+        return self._solutions
+    
+    def getName(self):
+        return self._name
+
+        
+
+class Rule(KnownRule):
+    
+    def __init__(self, store, name, vars,cons):   
+        self._name = name
+        self._variables = self.buildDicts(store,vars)
+        self._constraints = cons
+        self._solutions = None
+        #TODO: Probably remove this
+        self._type = None
+        try:
+            self.solve()
+        except:
+            pass
+    
+           
+    def buildDicts(self,store,variables):
+        dictlist = []
+        for item in variables:
+            if item['type'] == 'variable':
+                try:
+                    dictlist.append({'varname': item['varname'], 'value': store.getVariableRuleSolutions(item['varname'])})
+                except:
+                    pass
+            else:
+                try:
+                    dictlist.append({'varname': item['varname'], 'value': store.getConstant(item['varname'])})
+                except:
+                    pass
+        
+        return dictlist
+
+
+    def update(selfself,store,variables):
+        self.buildDicts(store,variables)
+        return
+        
+    def solve(self):
+        return self._solve(self._variables, self._constraints)
+        
+    def _solve(self, varlist, cons):
+        solvelist = []
+        prob = Problem()
+        
+        for item in varlist:
+             prob.addVariable('%s' % item['varname'], item['value'])
+    
+        for item in cons:
+            if item['func'] and item['func_vars']:
+                try:
+                    prob.addConstraint(FunctionConstraint(item['func']), item['func_vars'])
+                except:
+                    pass
+            # TODO: TEST THIS
+            elif item['con']:           
+                prob.addConstraint(item['con'], item['func_vars'])
+    
+        self._solutions = prob.getSolutions()
+        return     
+    
+
             
