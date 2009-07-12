@@ -43,7 +43,7 @@ class DaneelProblem(Problem):
             return self._variableRules[name].getsol()
     
         
-    def resetVaribles(self):
+    def resetVariables(self):
         self._variableRules = {}
         return
         
@@ -155,18 +155,18 @@ class KnownRule(object):
 
 class Rule(KnownRule):
     
-    def __init__(self, store, name, vars,cons):   
+    def __init__(self, store, name, vars,cons,save_syntax=None):   
         self._name = name
         self._variables = self.buildDicts(store,vars)
         self._constraints = cons
         self._solutions = None
         #TODO: Probably remove this
         self._type = None
+        self._save_syntax = save_syntax
         try:
             self.solve()
         except:
-            pass
-    
+            pass    
            
     def buildDicts(self,store,variables):
         dictlist = []
@@ -189,10 +189,12 @@ class Rule(KnownRule):
         self.buildDicts(store,variables)
         return
         
-    def solve(self):
-        return self._solve(self._variables, self._constraints)
+    def solve(self, save_syntax=None):
+        if save_syntax == None:
+            save_syntax = self._save_syntax
+        return self._solve(self._variables, self._constraints, save_syntax)
         
-    def _solve(self, varlist, cons):
+    def _solve(self, varlist, cons, save_syntax):
         solvelist = []
         prob = Problem()
         
@@ -208,8 +210,13 @@ class Rule(KnownRule):
             # TODO: TEST THIS
             elif item['con']:           
                 prob.addConstraint(item['con'], item['func_vars'])
-    
-        self._solutions = prob.getSolutions()
+        if save_syntax != None:
+            if prob.getSolutions != []:
+                self._solutions = [sol[save_syntax] for sol in prob.getSolutions()]
+            else:
+                self._solutions = prob.getSolutions()           
+        else:
+            self._solutions = prob.getSolutions()
         return     
     
 
