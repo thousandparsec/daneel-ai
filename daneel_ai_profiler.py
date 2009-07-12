@@ -69,21 +69,25 @@ if __name__=='__main__':
 		output = state_dir + basename[0]  + ".out"
 		profile = state_dir + state  + ".profile"
 		
-		cache = Cache('dummy_val')
-		cache.file = state_dir + state
-		cache.load()
-
-		filesplit = re.split('\_-_+', state)	
-		rulesfile = filesplit[0]
-		verbosity = int(filesplit[1])
-
-		cProfile.runctx('gameLoopBenchMark(rulesfile,turns,connection,cache,verbosity)', globals(), locals(), profile)	
-		
-		file = FakeStdOut(output, 'w')
-		p = pstats.Stats(profile,stream=file)
-		
-		p.strip_dirs().sort_stats('time').print_stats(100)
-		file.close()
+		try:
+			cache = Cache('dummy_val')
+			cache.file = state_dir + state
+			cache.load()
+	
+			filesplit = re.split('\_-_+', state)	
+			rulesfile = filesplit[0]
+			verbosity = int(filesplit[1])
+	
+			cProfile.runctx('gameLoopBenchMark(rulesfile,turns,connection,cache,verbosity)', globals(), locals(), profile)	
+			
+			file = FakeStdOut(output, 'w')
+			p = pstats.Stats(profile,stream=file)
+			
+			p.strip_dirs().sort_stats('time').print_stats(100)
+			file.close()
+			
+		except:
+			pass
 			
 
 		
