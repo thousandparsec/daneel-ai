@@ -106,13 +106,13 @@ def gameLoop(rulesfile,turns=-1,uri='tp://daneel-ai:cannonfodder@localhost/tp',v
 
 def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,save):
 			
-    rulesystem = DaneelProblem(rulesfile,verbosity)
+    problem = DaneelProblem(rulesfile,verbosity)
     logging.getLogger("daneel").info("Downloading all data")
     cache.update(connection,callback)
 #    state = picklegamestate.GameState(rulesfile,turns,None,cache,verbosity)
  #   state.pickle("./states/" + time.time().__str__() + ".gamestate")
 
-    init(cache,rulesystem,connection)
+    init(cache,problem,connection)
     
     delta = True
     while turns != 0:
@@ -126,10 +126,10 @@ def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,save):
         
         lastturn = cache.objects[0].turn
 
-        startTurn(cache,rulesystem,delta)
-        rulesystem.addConstraint("cacheentered")
-        endTurn(cache,rulesystem,connection)
-        rulesystem.clearStore(delta)
+        startTurn(cache,problem,delta)
+        # rulesystem.addConstraint("cacheentered")
+        endTurn(cache,problem,None)
+        problem.resetVariables()
 
         if(debug):
             time.sleep(10)
@@ -151,11 +151,8 @@ def gameLoopBenchMark(rulesfile,turns,connection,cache,verbosity):
     delta = False
     startTurn(cache,problem,delta)
     
-    if(debug):
-        sys.exit()
-        
-    endTurn(cache,rulesystem,None)
-    rulesystem.clearStore(delta)    
+    endTurn(cache,problem,None)
+    problem.resetVariables()    
     return
 
 
