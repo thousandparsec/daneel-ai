@@ -55,14 +55,14 @@ class DaneelProblem(Problem):
         return self._constantRules
     
     def getConstant(self, name):
-        if not (name in self._constants):
+        if not (name in self._constantRules):
             raise KeyError, "Value not found: %s" % \
                             repr(name)
         else:
-            return self.constantRules[name]  
+            return self._constantRules[name]  
     
     def setConstant(self, name, domain):
-        if name in self._constants:
+        if name in self._constantRules:
             raise ValueError, "Tried to insert duplicated entry %s" % \
                               repr(name)
         if type(domain) in (list, tuple):
@@ -74,7 +74,7 @@ class DaneelProblem(Problem):
                              "the Domain class"
         if not domain:
             raise ValueError, "Domain is empty"
-        self._constants[name] = domain
+        self._constantRules[name] = domain
         return
         
 def createRuleSystem(rulesfile):
@@ -152,21 +152,40 @@ class KnownRule(object):
         return self._name
 
         
-
 class Rule(KnownRule):
     
-    def __init__(self, store, name, vars,cons,save_syntax=None):   
+    def __init__(self, name, store=None, vars=[],cons=[],save_syntax=None, solutions = None):   
         self._name = name
-        self._variables = self.buildDicts(store,vars)
+        try:
+            self._variables = self.buildDicts(store,vars)
+        except:
+            pass
         self._constraints = cons
-        self._solutions = None
+        self._solutions = solutions
         #TODO: Probably remove this
         self._type = None
         self._save_syntax = save_syntax
         try:
-            self.solve()
+            if solutions == None:
+                self.solve()
         except:
             pass    
+    
+    
+    def resetVariables(self):
+        self._variables = []
+        
+    def appendVariable(self, variable, extend=False):
+        if extend == False:
+            self._variables.append(variable)
+        else:
+            self._variables.extend(variable)
+    
+    def appendConstraint(self, constraint):
+        self._constraints.append(constraint)
+        
+    def resetConstraints(self):
+        self._constraints = []
            
     def buildDicts(self,store,variables):
         dictlist = []
@@ -208,11 +227,17 @@ class Rule(KnownRule):
                 except:
                     pass
             # TODO: TEST THIS
-            elif item['con']:           
-                prob.addConstraint(item['con'], item['func_vars'])
+            elif item['con']:
+                if item['func_vars']:
+                    prob.addConstraint(item['con'], item['func_vars'])
+                else:
+                    prob.addConstraint(item['con'])
+            else:
+                pass
+                
         if save_syntax != None:
-            if prob.getSolutions != []:
-                self._solutions = [sol[save_syntax] for sol in prob.getSolutions()]
+            if prob.getSolutions() != []:
+                self._solutions = self.niceOutput(save_syntax, prob.getSolutions())
             else:
                 self._solutions = prob.getSolutions()           
         else:
@@ -220,4 +245,17 @@ class Rule(KnownRule):
         return     
     
 
-            
+    def niceOutput(self, syntax, sols):
+        ll = []
+        for sol in sols:
+            for (k,v) in syntax.items():
+                if 'sort' in dir(v):
+                    dict = {}
+                    for item in v:
+                        dict[item] = sol[k][item]
+                    ll.append(dict)
+                    
+                else:
+                    ll.append(sol[k][v])
+                    
+        return ll
