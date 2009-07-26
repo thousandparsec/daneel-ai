@@ -2,7 +2,7 @@ import tp.client.cache
 from tp.netlib.objects import OrderDescs
 import sys
 from constraint import *
-from problem import *
+from daneel.problem import *
 import logging
 
 constraints = """player(int,unicode)
@@ -47,9 +47,12 @@ def getLastTurnTime(cache,delta=0):
                 pass
         return latest_time
     
-def startTurn(cache,store,delta=0):
+def startTurn(cache,store,delta=0,store_list=None):
     player, whoami,turn,objects = [], [], [], []
-    store_list = ['subtype', 'name', 'size', 'pos', 'vel', 'owner', 'contains', 'resources', 'ships', 'damage', 'start', 'end']
+    
+    if store_list == None:
+        store_list = ['subtype', 'name', 'size', 'pos', 'vel', 'owner', 'contains',
+                       'resources', 'ships', 'damage', 'start', 'end']
 
         
     last_time = getLastTurnTime(cache,delta)       
@@ -67,18 +70,21 @@ def startTurn(cache,store,delta=0):
         else:
                 element['id'] = k
                 element['time_modified'] = cache.objects.times[k]
-                for variable in dir(v):
-                    if variable == 'resources':
-                        logging.getLogger('RESOURCES').debug( eval('v.resources[0][1]') )
-                    if variable in store_list:
+                for attribute in store_list:
+                    if hasattr(v, attribute):
                         try:
-                            element['%s' %variable.__str__()] = eval('v.%s' % variable)
+                            element[attribute] = eval('v.%s' % attribute)
                         except:
                             pass
+                        if attribute == 'resources':
+                            try:
+                                logging.getLogger('RESOURCES').debug( eval('v.resources[0][1]') )
+                            except:
+                                pass
                     else:
                         pass
+                        
         objects.append( element)
-    
     
     playerRule = KnownRule('player', player)
     whoamiRule = KnownRule('whoami', whoami)
