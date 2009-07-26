@@ -148,6 +148,10 @@ class KnownRule(object):
     def getsol(self):
         return self._solutions
     
+    def setsol(self, sol):
+        self._solutions = sol
+        return
+    
     def getName(self):
         return self._name
 
@@ -189,15 +193,27 @@ class Rule(KnownRule):
            
     def buildDicts(self,store,variables):
         dictlist = []
+        liststr = 'SingleList'
         for item in variables:
             if item['type'] == 'variable':
                 try:
-                    dictlist.append({'varname': item['varname'], 'value': store.getVariableRuleSolutions(item['varname'])})
+                        try:
+                            if item['list'] == True:
+                                dictlist.append({'varname': item['varname'] + liststr, 'value': [store.getVariableRuleSolutions(item['varname'])]})
+                                print "LIST", item['varname']    
+                        
+                        except:
+                            print "NOLIST", item['varname']
+                            dictlist.append({'varname': item['varname'], 'value': store.getVariableRuleSolutions(item['varname'])})
                 except:
                     pass
             else:
                 try:
-                    dictlist.append({'varname': item['varname'], 'value': store.getConstant(item['varname'])})
+                        try:
+                            if item['list'] == True:
+                                dictlist.append({'varname': item['varname'] + liststr, 'value': [store.getConstant(item['varname'])]})
+                        except:
+                            dictlist.append({'varname': item['varname'], 'value': store.getConstant(item['varname'])})
                 except:
                     pass
         
@@ -256,6 +272,10 @@ class Rule(KnownRule):
                     ll.append(dict)
                     
                 else:
-                    ll.append(sol[k][v])
+                    if v == True:
+                        ll.append(sol[k])
+                    else:
+                        ll.append(sol[k][v])
                     
         return ll
+
