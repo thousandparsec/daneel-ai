@@ -34,8 +34,7 @@ def startTurn(cache, daneelproblem, delta=0):
                 name='myplanets', 
                 vars=[{'varname': 'whoami', 'type':'variable'}, {'varname': 'objects', 'type':'variable'}], 
                 cons=[{'func': func, 'func_vars': func_vars}],
-                save_syntax ='objects')
-    
+                save_syntax ={'objects': True})
     
     daneelproblem.addVariableRule({myplanets.getName(): myplanets})
     
@@ -45,10 +44,9 @@ def startTurn(cache, daneelproblem, delta=0):
                 name='otherplanets', 
                 vars=[{'varname': 'whoami', 'type':'variable'}, {'varname': 'objects', 'type':'variable'}], 
                 cons=[{'func': func, 'func_vars': func_vars}],
-                save_syntax ='objects')
+                save_syntax ={'objects': True})
     
     daneelproblem.addVariableRule({otherplanets.getName(): otherplanets})
-   
    
     func = lambda object: isStar(object)
     func_vars =['objects']    
@@ -56,17 +54,17 @@ def startTurn(cache, daneelproblem, delta=0):
                  name='stars',
                  vars=[{'varname': 'objects', 'type':'variable'}],
                  cons=[{'func': func, 'func_vars': func_vars}],
-                 save_syntax ='objects')
+                 save_syntax ={'objects': True})
     
     daneelproblem.addVariableRule({stars.getName(): stars})
-
+    
     func = lambda object: isScoutShip(object)
     func_vars =['objects']    
     scouts = Rule(store = daneelproblem,
                  name='scouts',
                  vars=[{'varname': 'objects', 'type':'variable'}],
                  cons=[{'func': func, 'func_vars': func_vars}],
-                 save_syntax ='objects')
+                 save_syntax ={'objects': True})
     
     daneelproblem.addVariableRule({scouts.getName(): scouts})
     
@@ -76,32 +74,30 @@ def startTurn(cache, daneelproblem, delta=0):
                  name='colonyships',
                  vars=[{'varname': 'objects', 'type':'variable'}],
                  cons=[{'func': func, 'func_vars': func_vars}],
-                 save_syntax ='objects')
+                 save_syntax ={'objects': True})
     
     daneelproblem.addVariableRule({colonyships.getName(): colonyships})
-    
     
     # TODO: ORDER SELECTION STILL INCOMPLETE
     
     num_stars = len(stars.getsol())
     if ( num_stars > 10):
         for planet in myplanets.getsol():
-            node = {'planet': planet['id'], 'type': ((1,1),), 'str': 'Scouting'}
+            print planet
+            node = {'planet': planet['id'], 'type': [(1,1)], 'str': 'Scouting', 'item': planet}
             orders_build_fleet.append(node)
-            
     
     for item in myplanets.getsol():
-        node = {'planet': planet['id'], 'type': ((7,1),)}
+        node = {'planet': item['id'], 'type': ((7,1),)}
         orders_produce.append(node)
     
     daneelproblem.addVariableRule({'orders_produce': orders_produce})
     
     
-    
     for item in myplanets.getsol():
         for resource_node in item['resources']:
             if resource_node[0] == 7 and resource_node[1] >= 5:
-                node = {'planet': item['id'], 'type': ((3,resource_node[1]),), 'str': 'Colonization'}
+                node = {'planet': item['id'], 'type': ((3,resource_node[1]),), 'str': 'Colonization', 'item': item}
                 orders_build_fleet.append(node)
             else:
                 pass
@@ -116,15 +112,17 @@ def startTurn(cache, daneelproblem, delta=0):
                  vars=[{'varname': 'otherplanets', 'type':'variable'}, {'varname': 'stars', 'type':'variable'},
                         {'varname': 'colonyships', 'type':'variable'}],
                  cons=[{'func': func, 'func_vars': func_vars}])
-    
+
     
     daneelproblem.addVariableRule({valid_colonies.getName(): valid_colonies})
 
     if valid_colonies.getsol() != None:
         for item in valid_colonies.getsol():
-            node = {'fleet': colonyships['objects']['id'], 'planet': otherplanets['objects']['id']}
+            node = {'fleet': item['colonyships']['id'], 'planet': item['otherplanets']['id']}
             orders_colonise.append(node)
 
+    daneelproblem.addVariableRule({'orders_colonise': orders_colonise})
+        
     func = lambda planet,colonyship: ColonyDest(planet,colonyship)
     func_vars =['otherplanets', 'colonyships']    
     colony_destinations = Rule(store = daneelproblem,
@@ -134,13 +132,14 @@ def startTurn(cache, daneelproblem, delta=0):
     
     daneelproblem.addVariableRule({colony_destinations.getName(): colony_destinations})
 
+    col_d = []
     if colony_destinations.getsol() != None:
         for item in colony_destinations.getsol():
-            node = {'fleet': colonyships['objects']['id'], 'planet': otherplanets['objects']['id']}
-            orders_move.append(node)
+            node = {'fleet': item['colonyships']['id'], 'planet': item['otherplanets']['id']}
+            col_d.append(node)
+    orders_move.extend(best(col_d, 'fleet', 'planet'))
 
-    daneelproblem.addVariableRule({'orders_move': orders_move})
-    
+             
     func = lambda star,scoutship: ScoutLocations(star,scoutship)
     func_vars =['stars', 'scouts']    
     scout_locations = Rule(store = daneelproblem,
@@ -150,14 +149,31 @@ def startTurn(cache, daneelproblem, delta=0):
     
     daneelproblem.addVariableRule({scout_locations.getName(): scout_locations})
     
+    scouts_l = []   
     if scout_locations.getsol() != None:
         for item in scout_locations.getsol():
-            node = {'fleet': scouts['objects']['id'], 'planet': stars['objects']['id']}
-            orders_move.append(node)
-               
+            node = {'fleet': item['scouts']['id'], 'planet': item['stars']['id']}
+            scouts_l.append(node)
+
+    orders_move.extend(best(scouts_l, 'fleet', 'planet') )
+    daneelproblem.addVariableRule({'orders_move': orders_move})
+                   
     return
     
-
+# FIXME
+def best(list_l, subject, object):
+    orders = []
+    orders_index = []
+    orders_object = []
+    for item in list_l:
+        if item[subject] not in orders_index and item[object] not in orders_object:
+            orders.append(item)
+            orders_index.append(item[subject])
+            orders_object.append(item[object])
+        else:
+            pass
+    
+    return orders
 
 def info(problem):
     turn = problem.getVariableRuleSolutions('turn')
@@ -165,8 +181,6 @@ def info(problem):
 
 
 def ScoutLocations(star,scout):
-    print star
-    print scout
     if not(isStar(star)):
         return False
     if not(isScoutShip(scout)):
@@ -190,6 +204,7 @@ def validColonise(star,planet,colonyship):
         return False
     if star['contains'] == []:
         return False
+
     
     if planet['id'] in star['contains'] and colonyship['id'] in star['contains']:
         return True
@@ -278,50 +293,58 @@ def otherPlanets(object, player_id):
      
      
 def endTurn(cache,rulesystem,connection):
+    print "e1"
     orders = rulesystem.getVariableRule("orders_move")
     for order in orders:
         objid = order['fleet']
         destination = order['planet']
-        print "Moving %s to %s" % (objid,cache.objects[destination].pos)
+        logging.getLogger("ORD_MVE").info("Moving %s to %s" % (objid,cache.objects[destination].pos))
         moveorder = findOrderDesc("Move")
         args = [0, objid, -1, moveorder.subtype, 0, [], destination]
         order = moveorder(*args)
         evt = cache.apply("orders","create after",objid,cache.orders[objid].head,order)
-        tp.client.cache.apply(connection,evt,cache)
-
+        if connection != None:
+            tp.client.cache.apply(connection,evt,cache)
+    print "e2"
     orders = rulesystem.getVariableRule("orders_build_fleet")
     for order in orders:
         objid = order['planet']
-        ships = order['type']
+        ships = list(order['type'])
         name = order['str']
-        print "Ordering fleet %s of %s" % (name,ships)
+        logging.getLogger("ORD_BLD").info("Planet %d Ordering fleet %s of %s" % (objid,name,ships))
         buildorder = findOrderDesc("Build Fleet")
         args = [0, objid, -1, buildorder.subtype, 0, [], [[],ships], (len(name),name)]
         order = buildorder(*args)
         evt = cache.apply("orders","create after",objid,cache.orders[objid].head,order)
-        tp.client.cache.apply(connection,evt,cache)
-
+        if connection != None:
+            tp.client.cache.apply(connection,evt,cache)
+    print "e3"
     orders = rulesystem.getVariableRule("orders_produce")
     for order in orders:
         objid = order['planet']
         toproduce = order['type']
-        print "Producing %s" % toproduce
+        logging.getLogger("ORD_PRD").info("Producing %s" % toproduce)
         order = findOrderDesc("Produce")
         args = [0, objid, -1, order.subtype, 0, [], [[],toproduce]]
         o = order(*args)
         evt = cache.apply("orders","create after",objid,cache.orders[objid].head,o)
-        tp.client.cache.apply(connection,evt,cache)
-        
-    orders = rulesystem.getVariableRule("orders_colonise")
-    for order in orders:
-        objid = order['fleet']
-        target = order['planet']
-        print "Colonizing %s" % target
-        order = findOrderDesc("Colonise")
-        args = [0, objid, -1, order.subtype, 0, [], target]
-        o = order(*args)
-        evt = cache.apply("orders","create after",objid,cache.orders[objid].head,o)
-        tp.client.cache.apply(connection,evt,cache)
+        if connection != None:
+            tp.client.cache.apply(connection,evt,cache)
+    print "e4"
+    try:    
+        orders = rulesystem.getVariableRule("orders_colonise")
+        for order in orders:
+            objid = order['fleet']
+            target = order['planet']
+            logging.getLogger("ORD_PRD").info("Colonizing %s" % target)
+            order = findOrderDesc("Colonise")
+            args = [0, objid, -1, order.subtype, 0, [], target]
+            o = order(*args)
+            evt = cache.apply("orders","create after",objid,cache.orders[objid].head,o)
+            if connection != None:
+                tp.client.cache.apply(connection,evt,cache)
+    except:
+        pass
 
 
 def findOrderDesc(name):
