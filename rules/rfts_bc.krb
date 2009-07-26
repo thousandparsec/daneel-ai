@@ -1,0 +1,122 @@
+turn
+    use turn($num)
+    when
+        game.turn($num)
+        python print "The turn is ", $num
+
+planet
+    use planet($id)
+    when
+        $num = 3
+    	game.subtype($id, $num)
+        
+
+star
+    use star($id)
+    when
+        $num = 2
+    	game.subtype($id, $num)
+
+
+#FIX
+stars
+    use stars($stars_list)
+    when
+        python s_list = []
+        forall
+            star($id)
+            python s_list.append($id)
+        $stars_list = tuple(s_list)
+
+myplanet
+    use myplanet($planet_id)
+    when
+        game.whoami($player_id)
+        game.owner($planet_id, $player_id)
+        planet($planet_id)
+
+neutralplanet
+    use neutralplanet($planet_id)
+    when
+        $owner = -1
+        planet($planet_id)
+        game.owner($planet_id, $owner)
+        
+            
+build_scouts
+    use orders_build($planet_id, 0)
+    when
+        stars($stars_list)
+        $num_stars = len($stars_list)
+        check $num_stars > 10
+        myplanet($planet_id)         
+
+produce_colonists
+    use order_produce($planet_id, 0)
+    when
+        myplanet($planet_id)
+
+build_colonyships
+    use orders_build($planet_id, 1)
+    when
+        myplanet($planet_id)
+        game.resources($planet_id,7,$num, $_rest, $_restduo)
+        check $num >= 5
+        
+
+ship
+    use ship($id)
+    when
+    	game.subtype($id, $num)
+        $num = 4
+
+colonyship
+    use colonyship($id)
+    when
+        game.name($id,"Colonization")
+        ship($id)
+
+scoutship
+    use scoutship($id)
+    when
+        game.name($id,"Scouting")
+        ship($id)
+
+        
+
+orders_colony
+    use orders_colonise($ship_id, $planet_id)
+    when
+        star($star_id)
+        game.contains($star_id, $contents)
+        colonyship($ship_id)
+        $ship_id in $contents
+        first
+            planet($planet_id)
+            $planet_id in $contents
+
+
+
+orders_move_colony
+    use orders_move($fleet_id, $planet_id)
+    when
+        colonyship($fleet_id)
+        first
+            neutralplanet($planet_id)
+
+orders_move_scout
+    use orders_move($fleet_id, $star_id)
+    when
+        scoutship($fleet_id)
+        stars($star_list)
+        $num_stars = len($star_list)
+        check $num_stars > 0
+        first
+            $star_id = random_star($star_list)
+
+bc_extras
+    import random
+    def random_star(star_list):
+        range = len(star_list)
+        node_num = random.randrange(range)
+        return star_list[node_num]
