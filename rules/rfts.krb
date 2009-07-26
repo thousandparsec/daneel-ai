@@ -1,0 +1,47 @@
+planets
+    foreach
+        game.subtype($id, 3)
+    assert
+        game.planets($id)
+
+myplanets
+    foreach
+        game.planets($planet_id)
+        game.whoami($player_id)
+        game.owner($planet_id, $player_id)
+    assert
+        game.myplanets($planet_id, $player_id)
+
+stars
+    foreach
+        game.subtype($id, 2)
+    assert
+        game.stars($id)
+
+ships
+    foreach
+        game.subtype($id, 4)
+    assert
+        game.ships($id)
+
+
+colonies
+    foreach
+        game.ships($id)
+        game.name($id,"Colonization")
+    assert
+        game.colonies($id)
+
+cc
+    foreach
+        game.stars($star_id)
+        game.contains($star_id, $contents)
+        game.colonies($ship_id)
+        $ship_id in $contents
+        first
+            game.planets($planet_id)
+            $planet_id in $contents
+    assert
+        game.orders_colonise($ship_id, $planet_id)
+
+
