@@ -1,8 +1,4 @@
-turn
-    use turn($num)
-    when
-        game.turn($num)
-        python print "The turn is ", $num
+extending parsec
 
 planet
     use planet($id)
@@ -18,7 +14,6 @@ star
     	game.subtype($id, $num)
 
 
-#FIX
 stars
     use stars($stars_list)
     when
@@ -28,12 +23,27 @@ stars
             python s_list.append($id)
         $stars_list = tuple(s_list)
 
+
+not_visited_stars
+    use not_visited_stars($stars_list)
+    when
+        python s_list = []
+        forall
+            star($id)
+            notany
+                game.visited($id)
+            python s_list.append($id)
+        $stars_list = tuple(s_list)
+
 myplanet
     use myplanet($planet_id)
     when
         game.whoami($player_id)
         game.owner($planet_id, $player_id)
         planet($planet_id)
+        game.resources($planet_id, $resources)
+    with
+        print "my planet %s has %s " % ($planet_id, $resources)
 
 neutralplanet
     use neutralplanet($planet_id)
@@ -44,25 +54,33 @@ neutralplanet
         
             
 build_scouts
-    use orders_build($planet_id, 0)
+    use orders_build($planet_id, (0,1))
     when
-        stars($stars_list)
+        not_visited_stars($stars_list)
         $num_stars = len($stars_list)
         check $num_stars > 10
-        myplanet($planet_id)         
+        myplanet($planet_id) as $myp
+        game.resources($planet_id, $stuff)
+#    with
+#        print "resources = ", $stuff         
 
 produce_colonists
-    use order_produce($planet_id, 0)
+    use orders_produce($planet_id, 0)
     when
-        myplanet($planet_id)
+        myplanet($planet_id) as $myp
 
 build_colonyships
-    use orders_build($planet_id, 1)
+    use orders_build($planet_id, (1,$num))
     when
-        myplanet($planet_id)
-        game.resources($planet_id,7,$num, $_rest, $_restduo)
+        myplanet($planet_id) as $myp
+        game.resources($planet_id, $stuff)
+        $node = 7
+        ($node, $num, *$rest) in $stuff
         check $num >= 5
-        
+#    with
+#        print "planet = ", $planet_id, $stuff, $node, $num
+     
+   
 
 ship
     use ship($id)
@@ -92,27 +110,41 @@ orders_colony
         colonyship($ship_id)
         $ship_id in $contents
         first
-            planet($planet_id)
+            neutralplanet($planet_id)
             $planet_id in $contents
+            notany
+                game.colonised($planet_id)
 
+        python engine.assert_('game', 'used', ($ship_id,))
+        python engine.assert_('game', 'colonised', ($planet_id,))
 
 
 orders_move_colony
     use orders_move($fleet_id, $planet_id)
     when
         colonyship($fleet_id)
+        notany
+            game.used($fleet_id)
         first
             neutralplanet($planet_id)
+            notany
+                game.colonised($planet_id)
+        python engine.assert_('game', 'used', ($fleet_id,))
 
 orders_move_scout
     use orders_move($fleet_id, $star_id)
     when
         scoutship($fleet_id)
-        stars($star_list)
+        notany
+            game.used($fleet_id)
+        not_visited_stars($star_list)
         $num_stars = len($star_list)
         check $num_stars > 0
         first
             $star_id = random_star($star_list)
+#        python engine.assert_('game', 'visited', ($star_id,))
+        python engine.add_universal_fact('game', 'visited', ($star_id,))
+        python engine.assert_('game', 'used', ($fleet_id,))
 
 bc_extras
     import random
