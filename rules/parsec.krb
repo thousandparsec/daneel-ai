@@ -1,0 +1,13 @@
+
+daneel_version
+    use daneel_version(1) taking (version_num)
+    with
+        print "Version is %d" % version_num
+
+turn
+    use turn($num)
+    when
+        game.turn($num)
+    with
+        print "The turn is ", $num
+
