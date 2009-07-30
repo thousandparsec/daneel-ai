@@ -1,0 +1,135 @@
+#planets
+#    foreach
+#        armies($
+#    assert
+#        game.planets($id)
+
+#myplanet
+#	use myplanet($planet_id, $army_num)
+#	when
+#		game.whoami($player_id)
+#		planet($planet_id)
+#		game.owner($planet_id, $player_id)
+#		armies($planet_id, $army_num)
+		
+
+#neutralplanet
+#    use neutralplanet($planet_id)
+#    when
+#        $owner = -1
+#        planet($planet_id)
+#        game.owner($planet_id, $owner)
+        
+        
+#planet
+#    use planet($id)
+#    when
+#        $num = 3
+#    	game.subtype($id, $num)
+    	
+#enemyplanet
+#	use enemyplanet($planet_id, $army_num)
+#	when
+#		game.whoami($me)
+#		planet($planet_id)
+#		game.owner($planet_id, $player)
+#		check $me != $player
+#		armies($planet_id, $army_num)
+		
+#TODO: DITCH armies
+
+#findcentral
+#	use safeplanet($planet_id)
+#	when
+#		myplanet($planet_id, $_army)
+#		game.whoami($player_id)
+#		forall
+#			adjacent($planet_id, $other)
+#		require
+#			game.owner($other, $player_id)    	
+			
+			
+#totaltroops
+#	use totaltroops($player_id, $troop_num)
+#	when
+#		game.player($player_id, $name)
+#		check $player_id != 0
+#		python total = 0
+#		forall
+#			planet($planet_id)
+#			game.owner($planet_id, $player_id)
+#			armies($planet_id, $army)
+#			python total += $army
+#			
+#		$troop_num = total
+#		
+#weakling
+#	use weakling($player_id)
+#	when
+#		game.whoami($player_id)
+#		game.player($other_player)
+#		check $player_id != $other_player
+#		totaltroops($player_id, $my_army)
+#		totaltroops($other_player, $other_army)
+#		check $my_army >= 1.25 * $other_army
+#		check $other_army > 0
+				
+				
+#sourcearmiesrec
+#	use addarmies($planet_id, $army_num)
+#	when
+#		addarmies($planet_id, $army_num2)
+#		$army_num2 = army_num - 1				
+		
+
+#needed_myplanet
+#	use needed($planet_id, $num)
+#	when
+#		myplanet($planet_id, $_n)
+#		$num = 1
+		
+#needed_neutralplanet
+#	use needed($planet_id, $num)
+#	when
+#		neutralplanet($planet_id)
+#		$num = 1
+				
+#needed_enemyplanet
+#	use needed($planet_id, $num)
+#	when
+#		enemyplanet($planet_id, $n)
+#		$num = $n + 1
+
+#enemyplanet(P,N) and adjacent(P2,P) ==> needed(P2,N/2)
+
+
+
+
+
+#TODO
+				
+#sourcearmiesrec @ addarmies(P,N) <=> N > 1 | army(P); addarmies(P,N-1)
+#sourcearmiesbase @ addarmies(P,1) <=> army(P)
+#sinkarmiesrec @ needed(P,N) and army(P) <=> N > 0 | needed(P,N-1)
+#sinkarmiesbase @ needed(_,0) <=> pass
+
+#cacheentered and army(P) ==> dosearch(P,1)
+
+#hopeless @ dosearch(P,4) <=> pass
+#startdepth @ dosearch(P,N) ==> search(P,N,(P,))
+#deepen @ dosearch(P,N) <=> dosearch(P,N+1)
+#search(P,0,L) and needed(P,N) and army(S) and dosearch(S,_) <=> L[0] == S | T = L[1]; chain_move(S,T,1); needed(P,N-1)
+#adjacent(P,P2) and search(P,N,L) ==> P2 not in L and N > 0 | search(P2,N-1,L+(P2,))
+#search(P,_,_) <=> pass
+
+#the attack is the best defence
+#adjacent(P,P2) and enemyplanet(P2) \ army(P) <=> chain_move(P,P2,1)
+
+#reinforce
+#enemyplanet(Pl,_) and owner(P,Pl) and adjacent(MyPl,Pl) and myplanet(MyPl,_) \ weakling(P) and reinforcements(N) <=> order_reinforce(P,N/2); reinforcements(N - N/2)
+#cacheentered and myplanet(P,_) \ reinforcements(N) and needed(P,Num) <=> N > 0 | needed(P,Num-1); order_reinforce(P,1); army(P); reinforcements(N-1)
+#cacheentered and reinforcements(N) ==> N > 0 | rand_reinforce(N)
+
+#chaincollapse @ chain_move(From,To,N1) and chain_move(From,To,N2) <=> chain_move(From,To,N1+N2)
+#chainrecurse @ cacheentered \ chain_move(From,To,Number) <=> Number > 3 | order_move(From,To,3); chain_move(From,To,Number-3)
+#chainbase @ cacheentered \ chain_move(From,To,Number) <=> order_move(From,To,Number)
