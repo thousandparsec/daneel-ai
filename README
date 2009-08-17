@@ -1,19 +1,20 @@
 This bot requires the following to be installed:
 	libtpproto-py
 	libtpclient-py
-	logilab.constraint
-logilab.constraint can be found online on
-http://www.logilab.org/project/logilab-constraint
-and is also provided by the Debian package python-constraint
+	pyke
+
+pyke can be found online on at:
+http://pyke.sourceforge.net/
 
 How to run:
-Just run "daneel-ai" to start the bot and make it connect to a server
-running on localhost using the rules-rfts rules. Use the --help option to
+Just run "daneel_ai" to start the bot and make it connect to a server
+running on localhost using the rfts rules. Use the --help option to
 find out other usage options. The syntax and other information about rule
 and mod files can be found on the wiki at
 http://www.thousandparsec.net/wiki/Daneel-ai
 
 What it does:
+
 The bot keeps track of small facts, like "contains(0,10)" to represent the
 universe. It also has a collection of rules to deduce new knowledge and
 approriate actions from these facts.

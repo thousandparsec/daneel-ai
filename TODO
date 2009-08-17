@@ -1,4 +1,4 @@
-* Split out RFTS-specific content generation in a different file to promote reuse
-* Document AI creation
-* Create more sensible AI
+* Optimize Risk AI
 * Improve performance
+* Implement Minisec support
+* Improve RFTS support
