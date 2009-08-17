@@ -1,13 +1,39 @@
+# to use these rules make sure to state extending parsec in any child .krb files
+# all the rules here are common to all parsec rule bases
+
 
 daneel_version
     use daneel_version(1) taking (version_num)
     with
         print "Version is %d" % version_num
 
+
+# returns the turn number
+
 turn
     use turn($num)
     when
         game.turn($num)
     with
-        print "The turn is ", $num
+        return $num
 
+
+#categorises an object
+
+planet
+    use planet($id)
+    when
+        game.subtype($id, 3)
+
+#categorises an object
+
+star
+    use star($id)
+    when
+        game.subtype($id, 2)
+
+#categorises an object        
+wormhole
+    use wormhole($id)
+    when
+        init.subtype($id, 5)

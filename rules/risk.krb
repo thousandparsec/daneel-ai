@@ -1,50 +1,414 @@
-#planets
-#    foreach
-#        armies($
-#    assert
-#        game.planets($id)
+extending parsec
 
-#myplanet
-#	use myplanet($planet_id, $army_num)
-#	when
-#		game.whoami($player_id)
-#		planet($planet_id)
-#		game.owner($planet_id, $player_id)
-#		armies($planet_id, $army_num)
-		
+# returns the id of two adjacent planets
 
-#neutralplanet
-#    use neutralplanet($planet_id)
-#    when
-#        $owner = -1
-#        planet($planet_id)
-#        game.owner($planet_id, $owner)
+adjacent        
+    use adjacent($planet_id, $planet_two_id)
+    when
+        wormhole($wid)
+        init.start($wid,$pos_start)
+        init.end($wid, $pos_end)
+        init.pos($star_id, $pos_start)
+        init.pos($star_two_id, $pos_end)
+        init.parent($planet_id, $star_id)
+        init.parent($planet_two_id, $star_two_id)
+
+
+# returns true if for actual players
+# ignores neutralplayers
+
+realplayer
+    use player($player_id, $player_name)
+    when
+        game.player($player_id, $player_name)
+        check $player_id > 0
+
+
+
+# returns the total number of reinforcements available for a player
+# takes into account any reinforcements already used up
+
+reinforcements
+    use reinforcements($player_id, $total_available)
+    when
+        player($player_id, $player_name)
+        python total = 0
+        first
+            planet($planet_id)
+            game.owner($planet_id, $player_id)
+            game.resources($planet_id, $resources)
+            (1, $curr, $total_available_t, *$rest) in $resources
+        forall
+            orders.armies($player_id, $int, $planet, $used)
+            python total -= $used
+        forall
+            temp.armies($player_id, $int, $planet, $used)
+            python total -= $used
+            
+        $total_available = $total_available_t + total
+
+
+# returns a tuple containing the number of troops, number of adjacent planets
+# and how safe the planet is for planets controlled by the player
+
+planet_score
+    use planet_score($player_id, $planet_id, $troops, $branching_factor, $safety_factor)
+    when
+        myplanet($player_id, $planet_id, $troops)
+        python branch = 0
+        forall
+            init.adjacent($planet_id, $other_planet)
+            python branch += 1
+            
+        $branching_factor = branch
+        $safety_factor = 0
+
+
+# returns a tuple containing the number of troops, number of adjacent planets
+# and how safe the planet is for planets controlled by the enemy player * -1
+# since they should be counted as a negative when considering a zero-sum evaluation
+# function
+
+enemy_planet_score
+    use planet_score($player_id, $planet_id, $troops, $branching_factor, $safety_factor)
+    when
+        enemyplanet($player_id, $planet_id, $etroops)
+        python branch = 0
+        forall
+            init.adjacent($planet_id, $other_planet)
+            python branch += 1
+            
+        $branching_factor = -1 * branch
+        $safety_factor = 0
+        $troops = -1 * $etroops
+
+
+# returns a tuple containing the number of troops, number of adjacent planets
+# and how safe the planet is for planets which are going to be colonised this turn by
+# the ai
+
+moving_planet_score
+    use planet_score($player_id, $planet_id, $troops, $branching_factor, $safety_factor)
+    when
+        neutralplanet($planet_id)
+        ordered_to($player_id_x, $int, $planet_id, $some_amount)
+        python branch = 0
+        forall
+            init.adjacent($planet_id, $other_planet)
+            python branch += 1
+            
+        $branching_factor = branch
+        $safety_factor = 0
+                
+        python total = 0
+        forall
+            orders.armies($player_id_t, $int, $planet_id, $amount)
+            python t = inc($player_id, $player_id_t, $amount)
+            python total += t
+        forall
+            temp.armies($player_id_t ,$int, $planet_id, $amount)
+            python t = inc($player_id, $player_id_t, $amount)
+            python total += t
         
+        $troops = total
+
+
+
+# check if a planet has ordered some_amount of armies to a player
+# claims the goal to not trigger the other ordered_to rule
+# to speed up the rule matching process
+
+temp_order
+    use ordered_to($player_id_x, $int, $planet_id, $some_amount)
+    when
+        temp.armies($player_id_x, $int, $planet_id, $some_amount)
+        special.claim_goal()
+
+order_order
+    use ordered_to($player_id_x, $int, $planet_id, $some_amount)
+    when
+        orders.armies($player_id_x, $int, $planet_id, $some_amount)
+
         
-#planet
-#    use planet($id)
+
+# returns the number of armies on a planet controlled by player_id
+            
+myplanet
+    use myplanet($player_id, $planet_id, $army_num)
+    when
+        check $player_id != -1
+        planet($planet_id)
+        game.owner($planet_id, $player_id)
+        armies($player_id, $planet_id, $army_num)
+
+
+# returns the planet_id and army_number of any enemy planet which is
+# adjacent to one of our planets.. a good attack target!
+        
+adjacentenemies
+    use adjacentenemies($player_id, $planet_id, $army_num, $enemy_planet_id, $enemy_army_num)
+    when
+         myplanet($player_id, $planet_id, $army_num)
+         init.adjacent($planet_id, $enemy_planet_id)
+         enemyplanet($player_id, $enemy_planet_id, $enemy_army_num)
+
+
+
+# returns if it is anyplanet which is not neutral controllred
+
+takenplanet
+    use takenplanet($player_id, $planet_id, $army_num)
+    when
+        player($player_id, $name)
+        planet($planet_id)
+        game.owner($planet_id, $player_id)
+        armies($player_id, $planet_id, $army_num)
+
+
+# true for neutral planets
+
+neutralplanet
+    use neutralplanet($planet_id)
+    when
+        planet($planet_id)
+        game.owner($planet_id, -1)
+
+# true for enemy planets of player_id
+        
+enemyplanet
+	use enemyplanet($player_id, $planet_id, $army_num)
+	when
+		planet($planet_id)
+		game.owner($planet_id, $player)
+		check $player != -1
+		check $player_id != $player
+		armies($player, $planet_id, $army_num)
+
+
+# calculates the number of troops on a planet
+# taking into account any troops which are going to be moved this turn
+
+armies
+    use armies($player_id, $planet_id, $troop_num)
+    when
+        check $player_id != -1
+        game.resources($planet_id, $resources)
+        (1, $troop_num_t, *$rest) in $resources
+        python total = $troop_num_t
+        forall
+            orders.armies($player_id_t, $int, $planet_id, $amount)
+            python t = inc($player_id, $player_id_t, $amount)
+            python total += t
+        forall
+            temp.armies($player_id_t ,$int, $planet_id, $amount)
+            python t = inc($player_id, $player_id_t, $amount)
+            python total += t
+        
+        $troop_num = total
+
+
+# calculates the number of troops on a planet
+# taking into account any troops which are going to be moved this turn
+# used only for neutral planets
+
+armiesneutral
+    use armies(-1, $planet_id, $troop_num)
+    when
+        python total = $troop_num_t
+        forall
+            orders.armies($player_id_t, $int, $planet_id, $amount)
+            python t = inc($player_id, $player_id_t, $amount)
+            python total += t
+        forall
+            temp.armies($player_id_t ,$int, $planet_id, $amount)
+            python t = inc($player_id, $player_id_t, $amount)
+            python total += t
+        
+        $troop_num = total
+
+
+
+    
+# calculates whether a move from my_planet_id to planet_dest_id is a good idea
+# and the amount of troops needed for that move to be beneficial
+moves
+    use destinations($player_id, $my_planet_id, $planet_dest_id, $amount) taking (used)
+    when
+        myplanet($player_id, $my_planet_id, $army_num)
+        init.adjacent($my_planet_id, $planet_dest_id)
+        
+        game.owner($planet_dest_id, $other_player_id)
+        
+        minimum(0, $other_player_id, $planet_dest_id, $required_sink_t)
+        armies($player_id, $planet_dest_id, $army_count)
+        
+        $required_sink = $required_sink_t - $army_count
+        check $required_sink > 0
+        
+        $amount = $required_sink 
+        #($army_num, $troop_num, $troop_num2)
+        
+    with
+        return $army_num - used - 1
+
+# recursively called, planets which we own that are adjacent
+# to another one of our planets do not need any more troops
+# circa this planet! so we return 0!
+
+minimum_mine_rec
+    use minimum(1, $player_id, $planet_id, $troop_num)
+    when
+        game.owner($planet_id, $player_id)
+        $troop_num = 0
+    
+# returns the minimum number of troops one our planets needs
+# to expand and make sure all of our planets are adequately defended
+
+minimum_mine
+    use minimum(0, $player_id, $planet_id, $troop_num)
+    when
+        myplanet($player_id, $planet_id, $army_count)
+        python total = 1
+        forall
+            init.adjacent($planet_id, $planet_dest_id)
+            minimum(1, $player_id, $planet_dest_id, $minval)
+            python total += $minval
+        
+        $troop_num = total
+        
+# we only need one troop to colonise a neutral planet
+
+minimum_neutral
+    use minimum($val, $player_id, $planet_id, $troop_num)
+    when
+        neutralplanet($planet_id)
+        $troop_num = 1
+
+
+# to attak an enemyplanet we need 1.4 * the enemys troops
+# the magic number 1.4 was derived from the risk rules file
+# which states that the defending player wins if they are
+# equal to or higher than attacking player which equates to
+# a 21/36 chance
+# which gives an attacking player a 15/36 chance
+# this will lead to stalemates since it is better to
+# defend then attack :\
+
+minimum_enemy_attack
+    use minimum(0, $player_id, $planet_id, $troop_num)
+    when
+        enemyplanet($player_id, $planet_id, $army)
+        python total = round(1.4 * $army)
+        $troop_num = total
+        
+attackmin
+    use attackminimum($player_id, $planet_id, $troop_num)
+    when
+        myplanet($player_id, $planet_id, $army_count)
+        init.adjacent($planet_id, $planet_dest_id)
+        enemyplanet($player_id, $planet_dest_id, $enemy_army)
+        $troop_num = round(1.4 * $enemy_army)
+
+
+# to make sure we are adequately defended we must have
+# 1/1.4 times the enemy troops!
+minimum_enemy_defend
+    use minimum(1, $player_id, $planet_id, $troop_num)
+    when
+        enemyplanet($player_id, $planet_id, $army)
+        python total = round($army / 1.4)
+        $troop_num = total
+
+
+# the following rules are derived from the knapsack example problem 
+# in the pyke exampless, given a list of choices, the number of resources
+# the choices use and the score for give choice.. calculate the best possible
+# combination of choices .. used for calculating the best moves for a planet
+
+subseq_finished
+    use subseq((), ())
+
+subseq_1
+    use subseq(($node, *$rest_choices), ($node, *$rest_available))
+    when
+        subseq($rest_choices, $rest_available)
+
+subseq_2
+    use subseq($choice, ($_, *$rest_available))
+    when
+        subseq($choice, $rest_available)
+
+best_combo
+    use best_combo($choice_list, $total_available, $combination)
+    when
+        subseq($combination, $choice_list)
+        check sum(map(lambda x: x[2], $combination)) <= $total_available        
+        
+#######################################################        
+###       OLD RULES BELOW NO LONGER USED              #
+### PROCEDE TO END OF FILE TO SEE BC_EXTRAS SECTION   #
+#######################################################        
+
+#safeplanetscore
+#    use safeplanetscore($num, $total_troops)
 #    when
-#        $num = 3
-#    	game.subtype($id, $num)
-    	
-#enemyplanet
-#	use enemyplanet($planet_id, $army_num)
-#	when
-#		game.whoami($me)
-#		planet($planet_id)
-#		game.owner($planet_id, $player)
-#		check $me != $player
-#		armies($planet_id, $army_num)
-		
-#TODO: DITCH armies
+#        python num, total = 0, 0
+#        forall
+#            safeplanet($planet_id, $army_count)
+#            python num += 1
+#            python total += $army_count
+#        
+#        $num = num
+#        $total_troops = total
+
+
+
+#valid_destinations
+#    use destinations($my_planet_id, $planet_dest_id, 1)
+#    when
+#        myplanet($my_planet_id, $army)
+#        init.adjacent($my_planet_id, $planet_dest_id)
+#        neutralplanet($planet_dest_id)
+        
+
+
+    
+#satisfiedplanetscore
+#    use satisfiedplanetscore($num, $total_troops)
+#    when
+#        python num, total = 0, 0
+#        forall
+#            myplanet($planet_id, $army_num)
+#            minimum(0, $planet_id, $min_num)
+#            python if $army_num >= $min_num: num += 1
+#            python if $army_num >= $min_num: total += $army_num - $min_num
+#    
+#        $num = num
+#        $total_troops = total
+
+
+#unsatisfiedplanetscore
+#    use unsatisfiedplanetscore($num, $total_troops)
+#    when
+#        python num, total = 0, 0
+#        forall
+#            myplanet($planet_id, $army_num)
+#            minimum(0, $planet_id, $min_num)
+#            python if $army_num < $min_num: num += 1
+#            python if $army_num < $min_num: total += $min_num - $army_num
+#      
+#        $num = num
+#        $total_troops = total
+
+
 
 #findcentral
-#	use safeplanet($planet_id)
+#	use safeplanet($planet_id, $army)
 #	when
-#		myplanet($planet_id, $_army)
+#		myplanet($planet_id, $army)
 #		game.whoami($player_id)
 #		forall
-#			adjacent($planet_id, $other)
+#			init.adjacent($planet_id, $other)
 #		require
 #			game.owner($other, $player_id)    	
 			
@@ -58,11 +422,42 @@
 #		forall
 #			planet($planet_id)
 #			game.owner($planet_id, $player_id)
-#			armies($planet_id, $army)
+#			armies($player_id, $planet_id, $army)
 #			python total += $army
 #			
 #		$troop_num = total
-#		
+
+
+#totalreinforcements
+#    use totalreinforcements($total)
+#   when
+#        python total = 0
+#        forall
+#            myplanet($planet_id, $army)
+#            game.resources($planet_id, $resources)
+#            (1, $curr, $available, *$rest) in $resources
+#            python total += $available
+#            
+#        $total = total      
+
+
+
+
+#total_needed
+#    use totalneeded($player_id, $troop_num)
+#    when
+#        python total = 0
+#        forall
+#            planet($planet_id)
+#            game.owner($planet_id, $player_id)
+#            armies($planet_id, $troops)
+#            myplanet($planet_id, $army)
+#            minimum($planet_id, $req)
+#            python total += max(0,$req - $army)
+#            
+#        $troop_num = total
+        
+		
 #weakling
 #	use weakling($player_id)
 #	when
@@ -73,63 +468,14 @@
 #		totaltroops($other_player, $other_army)
 #		check $my_army >= 1.25 * $other_army
 #		check $other_army > 0
-				
-				
-#sourcearmiesrec
-#	use addarmies($planet_id, $army_num)
-#	when
-#		addarmies($planet_id, $army_num2)
-#		$army_num2 = army_num - 1				
-		
-
-#needed_myplanet
-#	use needed($planet_id, $num)
-#	when
-#		myplanet($planet_id, $_n)
-#		$num = 1
-		
-#needed_neutralplanet
-#	use needed($planet_id, $num)
-#	when
-#		neutralplanet($planet_id)
-#		$num = 1
-				
-#needed_enemyplanet
-#	use needed($planet_id, $num)
-#	when
-#		enemyplanet($planet_id, $n)
-#		$num = $n + 1
-
-#enemyplanet(P,N) and adjacent(P2,P) ==> needed(P2,N/2)
 
 
 
 
 
-#TODO
-				
-#sourcearmiesrec @ addarmies(P,N) <=> N > 1 | army(P); addarmies(P,N-1)
-#sourcearmiesbase @ addarmies(P,1) <=> army(P)
-#sinkarmiesrec @ needed(P,N) and army(P) <=> N > 0 | needed(P,N-1)
-#sinkarmiesbase @ needed(_,0) <=> pass
-
-#cacheentered and army(P) ==> dosearch(P,1)
-
-#hopeless @ dosearch(P,4) <=> pass
-#startdepth @ dosearch(P,N) ==> search(P,N,(P,))
-#deepen @ dosearch(P,N) <=> dosearch(P,N+1)
-#search(P,0,L) and needed(P,N) and army(S) and dosearch(S,_) <=> L[0] == S | T = L[1]; chain_move(S,T,1); needed(P,N-1)
-#adjacent(P,P2) and search(P,N,L) ==> P2 not in L and N > 0 | search(P2,N-1,L+(P2,))
-#search(P,_,_) <=> pass
-
-#the attack is the best defence
-#adjacent(P,P2) and enemyplanet(P2) \ army(P) <=> chain_move(P,P2,1)
-
-#reinforce
-#enemyplanet(Pl,_) and owner(P,Pl) and adjacent(MyPl,Pl) and myplanet(MyPl,_) \ weakling(P) and reinforcements(N) <=> order_reinforce(P,N/2); reinforcements(N - N/2)
-#cacheentered and myplanet(P,_) \ reinforcements(N) and needed(P,Num) <=> N > 0 | needed(P,Num-1); order_reinforce(P,1); army(P); reinforcements(N-1)
-#cacheentered and reinforcements(N) ==> N > 0 | rand_reinforce(N)
-
-#chaincollapse @ chain_move(From,To,N1) and chain_move(From,To,N2) <=> chain_move(From,To,N1+N2)
-#chainrecurse @ cacheentered \ chain_move(From,To,Number) <=> Number > 3 | order_move(From,To,3); chain_move(From,To,Number-3)
-#chainbase @ cacheentered \ chain_move(From,To,Number) <=> order_move(From,To,Number)
+bc_extras
+    def inc(player, player_other, amount):
+        if player == player_other:
+            return amount
+        else:
+            return -0.7 * amount

@@ -1,47 +1,135 @@
-planets
-    foreach
-        game.subtype($id, 3)
-    assert
-        game.planets($id)
-
-myplanets
-    foreach
-        game.planets($planet_id)
-        game.whoami($player_id)
-        game.owner($planet_id, $player_id)
-    assert
-        game.myplanets($planet_id, $player_id)
+extending parsec
 
 stars
-    foreach
-        game.subtype($id, 2)
-    assert
-        game.stars($id)
-
-ships
-    foreach
-        game.subtype($id, 4)
-    assert
-        game.ships($id)
+    use stars($stars_list)
+    when
+        python s_list = []
+        forall
+            star($id)
+            python s_list.append($id)
+        $stars_list = tuple(s_list)
 
 
-colonies
-    foreach
-        game.ships($id)
+not_visited_stars
+    use not_visited_stars($stars_list)
+    when
+        python s_list = []
+        forall
+            star($id)
+            notany
+                game.visited($id)
+            python s_list.append($id)
+        $stars_list = tuple(s_list)
+
+myplanet
+    use myplanet($planet_id)
+    when
+        game.whoami($player_id)
+        game.owner($planet_id, $player_id)
+        planet($planet_id)
+        game.resources($planet_id, $resources)
+    with
+        print "my planet %s has %s " % ($planet_id, $resources)
+
+neutralplanet
+    use neutralplanet($planet_id)
+    when
+        $owner = -1
+        planet($planet_id)
+        game.owner($planet_id, $owner)
+        
+            
+build_scouts
+    use orders_build($planet_id, (0,1))
+    when
+        not_visited_stars($stars_list)
+        $num_stars = len($stars_list)
+        check $num_stars > 10
+        myplanet($planet_id) as $myp
+        game.resources($planet_id, $stuff)
+
+produce_colonists
+    use orders_produce($planet_id, 0)
+    when
+        myplanet($planet_id) as $myp
+
+build_colonyships
+    use orders_build($planet_id, (1,$num))
+    when
+        myplanet($planet_id) as $myp
+        game.resources($planet_id, $stuff)
+        $node = 7
+        ($node, $num, *$rest) in $stuff
+        check $num >= 5
+
+ship
+    use ship($id)
+    when
+    	game.subtype($id, 4)
+
+colonyship
+    use colonyship($id)
+    when
         game.name($id,"Colonization")
-    assert
-        game.colonies($id)
+        ship($id)
 
-cc
-    foreach
-        game.stars($star_id)
+scoutship
+    use scoutship($id)
+    when
+        game.name($id,"Scouting")
+        ship($id)
+
+
+######when we get a match we assert that it is used
+###### so it will not be matched again this turn
+
+orders_colony
+    use orders_colonise($ship_id, $planet_id)
+    when
+        star($star_id)
         game.contains($star_id, $contents)
-        game.colonies($ship_id)
+        colonyship($ship_id)
         $ship_id in $contents
         first
-            game.planets($planet_id)
+            neutralplanet($planet_id)
             $planet_id in $contents
-    assert
-        game.orders_colonise($ship_id, $planet_id)
+            notany
+                game.colonised($planet_id)
+
+        python engine.assert_('game', 'used', ($ship_id,))
+        python engine.assert_('game', 'colonised', ($planet_id,))
 
 
+orders_move_colony
+    use orders_move($fleet_id, $planet_id)
+    when
+        colonyship($fleet_id)
+        notany
+            game.used($fleet_id)
+        first
+            neutralplanet($planet_id)
+            notany
+                game.colonised($planet_id)
+        python engine.assert_('game', 'used', ($fleet_id,))
+
+orders_move_scout
+    use orders_move($fleet_id, $star_id)
+    when
+        scoutship($fleet_id)
+        notany
+            game.used($fleet_id)
+        not_visited_stars($star_list)
+        $num_stars = len($star_list)
+        check $num_stars > 0
+        first
+            $star_id = random_star($star_list)
+#        python engine.assert_('game', 'visited', ($star_id,))
+        python engine.add_universal_fact('game', 'visited', ($star_id,))
+        python engine.assert_('game', 'used', ($fleet_id,))
+
+bc_extras
+    import random
+    def random_star(star_list):
+        range = len(star_list)
+        node_num = random.randrange(range)
+        return star_list[node_num]
