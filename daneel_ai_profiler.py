@@ -7,6 +7,7 @@ import StringIO
 import re
 import cPickle
 import daneel_ai
+from daneel_ai import gameLoopBenchMark
 import daneel.dpyke as fixpyke
 import daneel.util as util
 
