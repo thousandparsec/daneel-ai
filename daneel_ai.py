@@ -1,9 +1,9 @@
 #! /usr/bin/python
 
 try:
-	import requirements
+    import requirements
 except ImportError:
-	pass
+    pass
 
 import time
 import random
@@ -21,18 +21,22 @@ from tp.client.cache import Cache
 
 import daneel
 import cPickle
-from pyke import knowledge_engine
+import daneel.dpyke as dengine
+import daneel.common as common
+import daneel.util as util
 
 version = (0, 0, 3)
 
 def importGameFiles(rulesfile):
-
-	try:
-		game_file = getattr(__import__("daneel." + rulesfile), rulesfile)
-		return game_file.Game() 
-	except:
-		raise Exception, "Game rules missing for %s" % rulesfile
-	 
+    '''
+    Import the rulesfile
+    '''
+    try:
+        game_file = getattr(__import__("daneel." + rulesfile), rulesfile)
+        return game_file.Game() 
+    except:
+        raise Exception, "Game rulesfile missing for %s" % rulesfile
+     
 def callback(mode, state, message="", todownload=None, total=None, amount=None):
     logging.getLogger("daneel").debug("Downloading %s %s Message:%s", mode, state, message)
 
@@ -78,108 +82,98 @@ def setLoggingLevel(verbosity, stream=sys.stdout):
     logging.basicConfig(level=level,stream=sys.stdout,format=fmt)
     return
    
-def getDataDir():
+def gameLoop(rulesfile,turns=-1,uri='tp://daneel-ai:cannonfodder@localhost/tp',verbosity=1,save=0,learning=0):
     
-    if hasattr(sys, "frozen"):
-        installpath = os.path.dirname(unicode(sys.executable, sys.getfilesystemencoding( )))
-    else:
-        installpath = os.path.realpath(os.path.dirname(__file__))
-        
-    if hasattr(sys, "frozen"):
-        return os.path.join(installpath, "share", "daneel-ai")
-    if "site-packages" in daneel.__file__:
-        datadir = os.path.join(os.path.dirname(daneel.__file__), "..", "..", "..", "..", "share", "daneel-ai")
-    else:
-        datadir = os.path.join(os.path.dirname(daneel.__file__), "..")
-    return datadir
-
-def stripline(line):
-    if line[0] == "#": return ""
-    return line.strip()
-
-
-def saveGame(cache,rulesfile,verbosity):
-    root_dir = getDataDir()
-    save_dir = os.path.join( root_dir, "states" )
-    writeable = checkSaveFolderWriteable(root_dir, save_dir)
-    # NB assumes there is enough space to write
-    if not writeable:
-        logging.getLogger("daneel").error("Cannot save information")
-    else:       
-        cache.file = os.path.join(save_dir, rulesfile + "_-_" + str(verbosity) +
-								   "_-_" + time.time().__str__() + ".gamestate")
-        cache.save()
-
-
-def checkSaveFolderWriteable(root_dir, save_dir):    
-    dir_exists = os.access(save_dir, os.F_OK)
-    dir_writeable = os.access(save_dir, os.W_OK)
-    dir_root_writeable = os.access(root_dir, os.W_OK)
-    if dir_exists and dir_writeable:
-        return True
-    if dir_exists and not dir_writeable:
-        return False
-    if dir_root_writeable:
-        os.mkdir(save_dir)
-        return True
-    else:
-        return False
-
-
-def gameLoop(rulesfile,turns=-1,uri='tp://daneel-ai:cannonfodder@localhost/tp',verbosity=1,save=0):
+    #setup the logger to be used throughout the gameloop
     setLoggingLevel(verbosity)
+    
+    
     connection, cache = connect(uri)
-    gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,save)
 
-def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,save):
-
-
-    daneel_engine = knowledge_engine.engine('rules')        
-    game = importGameFiles(rulesfile)
-			
-    logging.getLogger("daneel").info("Downloading all data")
-    cache.update(connection,callback)
-    game.init(cache,daneel_engine,connection)
-
-    while turns != 0:
-        turns = turns - 1
-
-        logging.getLogger("daneel").info("Downloading updates")
-        cache.update(connection,callback)
-        
-        # store the cache
-        if save == '1':
-            logging.getLogger("daneel").info("Saving Cache")
-            saveGame(cache,rulesfile,verbosity) 
-        
-        lastturn = cache.objects[0].turn
-
-        game.startTurn(cache,daneel_engine)
-        game.endTurn(cache,daneel_engine,connection)
-        #if(debug):
-         #   time.sleep(10)
-            
-        connection.turnfinished()
-       
-        waitfor = connection.time()
-        logging.getLogger("daneel").info("Awaiting end of turn %s est: (%s s)..." % (lastturn,waitfor))
-        while lastturn == connection.get_objects(0)[0].turn:
-            waitfor = connection.time()
-            time.sleep( max(1,waitfor / 10))
-
-
-def gameLoopBenchMark(rulesfile,turns,connection,cache,verbosity):
-    setLoggingLevel(verbosity)
-    #setLoggingLevel(2)
-    daneel_engine = knowledge_engine.engine('rules')
-    daneel_engine.reset()        
-    logging.getLogger("daneel").info("Running BenchMark")
+    # import the required rulesfile
     game = importGameFiles(rulesfile)
     
-    game.init(cache,daneel_engine,connection)
-    game.startTurn(cache,daneel_engine)
-    game.endTurn(cache,daneel_engine,None)
-    return
+    #load the knowledge_engine
+    daneel_engine = dengine.engine('rules')
+    daneel_engine.reset()        
+    
+    
+    # create storage object to store program variables
+    parsec = common.ParsecGameStore(rulesfile,daneel_engine,cache,connection,verbosity,
+                                    learning,save,0)
+            
+    logging.getLogger("daneel").info("Downloading all data")
+    parsec.cache.update(parsec.connection,callback)
+    
+    # initialise the knowledge_base once at turn 0
+    game.init(parsec)
+
+    # set the state to 0 meaning the game is not over
+    state = 0
+    # continue the loop until we have an end state
+    while state == 0:
+        '''
+        Main loop for the game
+        '''
+        
+        # slight delay to stop flooding the server
+        time.sleep(0.5)
+        
+        logging.getLogger("daneel").info("Downloading updates")
+        
+        #reload the cache
+        parsec.cache.update(parsec.connection,callback)
+        
+        # the current turn
+        lastturn = parsec.cache.objects[0].turn
+
+        # parse the cache and load facts into the knowledge_base
+        game.startTurn(parsec)
+        
+        # check whether we have won or loss or to continue
+        state = game.checkGame(parsec)
+        if state == 0:
+            # we have not won.. perform moves
+            game.endTurn(parsec)
+            
+            # wait until the turn is over
+            parsec.connection.turnfinished()
+            waitfor = parsec.connection.time()
+            logging.getLogger("daneel").info("Awaiting end of turn %s est: (%s s)..." % (lastturn,waitfor))
+            # continually check until it is a new turn
+            while lastturn == parsec.connection.get_objects(0)[0].turn:
+                waitfor = parsec.connection.time()
+                time.sleep( max(1,waitfor / 10))
+
+        else:
+            util.learn(parsec, state)
+        
+    if parsec.learning == '1':
+        parsec.saveWeights()
+    return state        
+
+     
+
+def gameLoopBenchMark(parsec):
+    '''
+    Ran when profiling. Mini version of gameLoop()
+    The knowlege_base is already loaded when it is unpickled.
+    So all that is done is the decision making process.
+    '''
+    setLoggingLevel(parsec.verbosity)
+
+    logging.getLogger("daneel").info("Running BenchMark")
+    game = importGameFiles(parsec.rulesfile)
+    
+    state = game.checkGame(parsec)
+    
+    if state == 0:
+        game.endTurn(parsec)
+    else:
+        pass
+    
+    return state
+   
 
 
 
@@ -190,14 +184,17 @@ if __name__ == "__main__":
     parser.add_option("-n", "--numturns", dest="numturns", type="int", default=-1,
                       help="run for NUMTURNS turns [default: unlimited]")
     parser.add_option("-u", "--uri", dest="uri",
-                      default='tp://daneel-ai:cannonfodder@localhost/tp',
+                      default='tp://dd-ai:cannonfodder@localhost/tp',
                       help="Connect to specified URI [default %default]")
     parser.add_option("-v", action="count", dest="verbosity", default=1,
                       help="More verbose output. -vv and -vvv increase output even more.")
     parser.add_option("-s", dest="save", default=0,
                       help="Saves the game for benchmarking.")
+    parser.add_option("-l", dest="learning", default=0,
+                      help="Enable TD learning")
 
 
     (options, args) = parser.parse_args()
     
-    gameLoop(options.filename,turns=options.numturns,uri=options.uri,verbosity=options.verbosity,save=options.save)
+    gameLoop(options.filename,turns=options.numturns,uri=options.uri,verbosity=options.verbosity,
+             save=options.save, learning=options.learning)
