@@ -184,7 +184,7 @@ if __name__ == "__main__":
     parser.add_option("-n", "--numturns", dest="numturns", type="int", default=-1,
                       help="run for NUMTURNS turns [default: unlimited]")
     parser.add_option("-u", "--uri", dest="uri",
-                      default='tp://dd-ai:cannonfodder@localhost/tp',
+                      default='tp://daneel_ai:cannonfodder@localhost/tp',
                       help="Connect to specified URI [default %default]")
     parser.add_option("-v", action="count", dest="verbosity", default=1,
                       help="More verbose output. -vv and -vvv increase output even more.")
