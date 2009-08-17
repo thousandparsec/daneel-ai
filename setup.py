@@ -16,8 +16,8 @@ print sysconfig.get_config_var('prefix')
 
 # add cwd to installed single player XML file
 import fileinput
-of = open("daneel-ai.xml", 'w')
-for line in fileinput.FileInput("daneel-ai.xml.in"):
+of = open("daneel_ai.xml", 'w')
+for line in fileinput.FileInput("daneel_ai.xml.in"):
     if 'PREFIX' in line:
         line = line.replace('PREFIX', sysconfig.get_config_var('prefix'))
     of.write(line)
@@ -52,7 +52,7 @@ if sys.platform == 'win32':
     )
 
 setup(
-    name = "daneel-ai",
+    name = "daneel_ai",
     version = "0.0.3",
     license = "GPL",
     description = "An advanced rule based AI for Thousand Parsec.",
@@ -60,11 +60,11 @@ setup(
     author = "Vincent Verhoeven",
     author_email = "verhoevenv@gmail.com",
     url = "http://www.thousandparsec.net",
-    scripts = ["daneel-ai"],
-    console = ["daneel-ai"],
+    scripts = ["daneel_ai"],
+    console = ["daneel_ai"],
     packages = ["daneel"],
-    data_files = [("share/daneel-ai", ("LICENSE", "COPYING", "README")),
-                  ("share/daneel-ai/rules", ("rules/rfts", "rules/risk")),
-                  ("share/tp", ("daneel-ai.xml",))],
+    data_files = [("share/daneel_ai", ("LICENSE", "COPYING", "README")),
+                  ("share/daneel_ai/rules", ("rules/rfts", "rules/risk")),
+                  ("share/tp", ("daneel_ai.xml",))],
     **extra_arguments
 )

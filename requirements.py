@@ -50,9 +50,9 @@ try:
 except ImportError, e:
 	print e
 	if system == "debian-based":
-		notfound.append("python-constraint")
+		notfound.append("pyke")
 	else:
-		notfound.append("logilab.constraint")
+		notfound.append("pyke")
 
 if len(notfound) > 0:
 	print "The following requirements where not met:"
