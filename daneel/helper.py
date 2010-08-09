@@ -259,7 +259,9 @@ def playersWithoutGuest():
     '''
     allPlayers = players()
     #remove guest (a player who is always present and has no objects)
+    print "I am", whoami(), ". My name is", playerName(whoami())
     for player in allPlayers:
+        print player, " ", playerName(player)
         if name(player) == "guest":
             allPlayers.remove(player)
             break
@@ -287,7 +289,8 @@ def enemies():
     Returns a list of all the enemy playes.
     '''
     players = playersWithoutGuest()
-    players.remove(whoami())
+    if whoami() in players:
+        players.remove(whoami())
     return players
 
 def printAboutMe():
