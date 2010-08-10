@@ -68,7 +68,12 @@ def connect(uri='tp://daneel-ai:cannonfodder@localhost/tp'):
             print "Created username, but still couldn't login :/"
             return
 
-    cache = Cache(Cache.key(host, username))
+    games = connection.games()
+    if failed(games):
+        print "Getting the game object failed!"
+        return
+
+    cache = Cache(Cache.key(host, games[0], username))
     return connection, cache
 
 def getDataDir():
@@ -193,8 +198,12 @@ def gameLoop(rulesfile,turns=-1,uri='tp://daneel-ai:cannonfodder@localhost/tp',v
     try:
         connection, cache = connect(uri)
     except Exception, e: #TODO Null make the exception more specific
+        import traceback
+        traceback.print_exc()
+
         print "Connection failed."
         print e
+
         return
     
 #    state = picklegamestate.GameState(rulesfile,turns,None,None,verbosity)
