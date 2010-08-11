@@ -6,6 +6,7 @@ import tp.client.cache
 from tp.netlib.objects import OrderDescs
 import extra.objectutils
 import helper
+import random
 
 rulesystem = None
 
@@ -230,7 +231,7 @@ def buildFrigate(planetID):
     orderBuildFleet(planetID, [(helper.designByName("frigate"), 1)], "Frigate Fleet")
     
 def buildBattleship(planetID):
-    orderBuildFleet(planetID, [(helper.designByName("battleship"), 1)], "Battleship Fleet")
+    orderBuildFleet(planetID, [(helper.designByName("battleship"), 2)], "Battleship Fleet")
 
 def AICode():
     print "Now in python mode!"
@@ -240,9 +241,13 @@ def AICode():
     planets = []
     
     fleetsWithOrders = []
+    battleshipFleets = []
+    for fleet in helper.myFleets():
+        if helper.name(fleet) == "Battleship Fleet":
+            battleshipFleets.append(fleet)
     
     for planet in helper.neutralPlanets():
-        fleet = helper.nearestMyFleet(helper.position(planet),fleetsWithOrders)
+        fleet = helper.nearestMyFleet(helper.position(planet),fleetsWithOrders+battleshipFleets)
         
         if fleet == None:
             break
@@ -253,19 +258,18 @@ def AICode():
         else:
             print "colonising", helper.name(fleet)
             orderColonise(fleet)
-        
         fleetsWithOrders += [fleet]
         
-    fleetsWithoutOrders = helper.myFleets()
-    
-    for fleet in fleetsWithOrders:
-        fleetsWithOrders.remove(fleet)
-    #make all other fleets stop    
-    for fleet in fleetsWithoutOrders:
-        orderNone(fleet)
+    #attack with all fleets without orders
+    for fleet in helper.myFleets():
+        if not fleet in fleetsWithOrders:
+            orderMove(fleet, helper.position(helper.nearestEnemyPlanet(fleet)))
       
-    #build one frigate
+    #build one frigate or one battleship on every planet
     for myPlanet in helper.myPlanets():
-        print "building fleet at",helper.name(myPlanet)
-        buildFrigate(myPlanet)
+        if not helper.hasOrder(myPlanet):
+            if random.random() < 0.5:
+                buildFrigate(myPlanet)
+            else:
+                buildBattleship(myPlanet)
     return
