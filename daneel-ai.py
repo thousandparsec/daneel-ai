@@ -236,11 +236,11 @@ def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,benchmark):
         connection.turnfinished()
         waitfor = connection.time()
         
-        logging.getLogger("daneel").info("Awaiting end of turn %s est: (%s s)..." % (lastturn,waitfor))
+        logging.getLogger("daneel").info("Awaiting end of turn %s est: (%s s)..." % (lastturn,waitfor.time))
         try:
             while lastturn == connection.get_objects(0)[0].Informational[0][0]:
                 waitfor = connection.time()
-                time.sleep(max(1, min(10,waitfor / 100)))
+                time.sleep(max(1, min(10,waitfor.time / 100)))
         except IOError:
             print "Connection lost"
             exit(2)
