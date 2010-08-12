@@ -1,6 +1,7 @@
 import logging
 import tp.client.cache
 from tp.netlib.objects import OrderDescs
+from tp.client.objectutils import getResources, getOrderQueueList
 
 constraints = """adjacent(int,int)*
 reinforcements(int)
@@ -12,6 +13,12 @@ order_colonise(int,int)""".split('\n')
 rules = """adjacentset @ adjacent(A,B) \ adjacent(A,B) <=> pass
 addarmies @ resources(P,1,N,_) ==> armies(P,N)""".split('\n')
 
+def getStart(obj):
+    return tuple(obj.Positional.Position.vector)
+
+def getEnd(obj):
+    return tuple(obj.Informational.Exit.vector)
+
 def init(cache,rulesystem,connection):
     planets, systems = {}, {}
     #two loops because we want to make sure all planet positions are stored first
@@ -20,11 +27,11 @@ def init(cache,rulesystem,connection):
             planets[obj.parent] = obj.id
     for obj in cache.objects.itervalues():
         if obj.subtype == 2:
-            systems[obj.pos] = planets[obj.id]
+            systems[getStart(obj)] = planets[obj.id]
     for obj in cache.objects.itervalues():
         if obj.subtype == 5:
-            rulesystem.addConstraint("adjacent(%i,%i)"%(systems[obj.start],systems[obj.end]))
-            rulesystem.addConstraint("adjacent(%i,%i)"%(systems[obj.end],systems[obj.start]))
+            rulesystem.addConstraint("adjacent(%i,%i)"%(systems[getStart(obj)],systems[getEnd(obj)]))
+            rulesystem.addConstraint("adjacent(%i,%i)"%(systems[getEnd(obj)],systems[getStart(obj)]))
 
 
 def startTurn(cache,store, delta = 0):
@@ -32,8 +39,7 @@ def startTurn(cache,store, delta = 0):
     if myplanet is None:
         logging.getLogger("daneel.mod-risk").warning("No owned planets found. We're dead, Jim.")
         return
-    v = cache.objects[myplanet]
-    store.addConstraint("reinforcements(%i)"%v.resources[0][2])
+    store.addConstraint("reinforcements(%i)"% getResources(cache,myplanet)[0][2])
 
 def endTurn(cache,rulesystem,connection):
     orders = rulesystem.findConstraint("order_move(int,int,int)")
@@ -45,7 +51,8 @@ def endTurn(cache,rulesystem,connection):
         moveorder = findOrderDesc("Move")
         args = [0, start, -1, moveorder.subtype, 0, [], ([], [(destination, amount)])]
         order = moveorder(*args)
-        evt = cache.apply("orders","create after",start,cache.orders[start].head,order)
+        orderqueueID = getOrderQueueList(cache,start)[0][1]
+        evt = cache.apply("orders","create after",orderqueueID,cache.orders[orderqueueID].head,order)
         if connection != None:
             tp.client.cache.apply(connection,evt,cache)
     orders = rulesystem.findConstraint("order_reinforce(int,int)")
@@ -54,9 +61,10 @@ def endTurn(cache,rulesystem,connection):
         amount = order.args[1]
         logging.getLogger("daneel.mod-risk").debug("Reinforcing %s with %s troops" % (objid,amount))
         orderd = findOrderDesc("Reinforce")
-        args = [0, objid, -1, orderd.subtype, 0, [], amount, 0]
+        args = [0, objid, -1, orderd.subtype, 0, [], (amount, 0)]
         order = orderd(*args)
-        evt = cache.apply("orders","create after",objid,cache.orders[objid].head,order)
+        orderqueueID = getOrderQueueList(cache,start)[0][1]
+        evt = cache.apply("orders","create after",orderqueueID,cache.orders[orderqueueID].head,order)
         if connection != None:
             tp.client.cache.apply(connection,evt,cache)
     orders = rulesystem.findConstraint("order_colonise(int,int)")
@@ -68,7 +76,8 @@ def endTurn(cache,rulesystem,connection):
         orderd = findOrderDesc("Colonize")
         args = [0, planet, -1, orderd.subtype, 0, [], ([], [(objid, amount)])]
         o = orderd(*args)
-        evt = cache.apply("orders","create after",planet,cache.orders[planet].head,o)
+        orderqueueID = getOrderQueueList(cache,start)[0][1]
+        evt = cache.apply("orders","create after",orderqueueID,cache.orders[orderqueueID].head,o)
         if connection != None:
             tp.client.cache.apply(connection,evt,cache)
 
@@ -81,5 +90,5 @@ def findOrderDesc(name):
 def selectOwnedPlanet(cache):
     me = cache.players[0].id
     for (k,v) in cache.objects.items():
-        if v.subtype == 3 and v.owner == me:
+        if v.subtype == 3 and v.Ownership.Owner.id == me:
             return k

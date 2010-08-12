@@ -1,4 +1,5 @@
 from tp.netlib.objects import OrderDescs
+from tp.client.objectutils import getResources
 
 constraints = """player(int,unicode)
 subtype(int,int)
@@ -44,6 +45,7 @@ def getLastTurnTime(cache, delta=0):
                 pass
         return latest_time
 
+#TODO: this should do the more general things TP04 describes, not the specifics of TP03
 def startTurn(cache, store, delta=0):
     #last_time = getLastTurnTime(cache,delta)       
     for (k, v) in cache.players.items():
@@ -64,14 +66,14 @@ def startTurn(cache, store, delta=0):
             store.addConstraint("name(%i,%s)" % (k, v.name.replace(",", "'")))
         store.addConstraint("size(%i,%i)" % (k, v.size))
         store.addConstraint("pos(%i,%i,%i,%i)" % ((k, v.Positional.Position.vector.x, v.Positional.Position.vector.y, v.Positional.Position.vector.z)))
-        store.addConstraint("vel(%i,%i,%i,%i)" % ((k, v.Positional.Velocity.vector.x, v.Positional.Velocity.vector.y, v.Positional.Velocity.vector.z)))
+        if hasattr(v.Positional, "Velocity"):
+            store.addConstraint("vel(%i,%i,%i,%i)" % ((k, v.Positional.Velocity.vector.x, v.Positional.Velocity.vector.y, v.Positional.Velocity.vector.z)))
         for child in v.contains:
             store.addConstraint("contains(%i,%i)" % (k, child))
         if hasattr(v, "Ownership"):
             store.addConstraint("owner(%i,%i)" % (k, v.Ownership.Owner.id))
-        if hasattr(v, "resources"):
-            for res in v.resources:
-                store.addConstraint("resources(%i,%i,%i,%i,%i)" % ((k,) + res))
+        for res in getResources(cache,k):
+            store.addConstraint("resources(%i,%i,%i,%i,%i)" % ((k,) + res))
         if hasattr(v, "ships"):
             for (t, num) in v.ships:
                 store.addConstraint("ships(%i,%i,%i)" % (k, t, num))

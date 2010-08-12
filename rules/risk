@@ -90,7 +90,7 @@ chainbase @ cacheentered \ chain_move(From,To,Number) <=> order_move(From,To,Num
 import random
 def allmine(planets):
     me = cache.players[0].id
-    return all([cache.objects[x].owner == me for x in planets])
+    return all([cache.objects[x].Ownership.Owner.id == me for x in planets])
 
 def distribute(origin,troops,planetlist):
     l = len(planetlist)
