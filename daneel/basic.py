@@ -65,7 +65,8 @@ def startTurn(cache, store, delta=0):
         else:
             store.addConstraint("name(%i,%s)" % (k, v.name.replace(",", "'")))
         store.addConstraint("size(%i,%i)" % (k, v.size))
-        store.addConstraint("pos(%i,%i,%i,%i)" % ((k, v.Positional.Position.vector.x, v.Positional.Position.vector.y, v.Positional.Position.vector.z)))
+        if hasattr(v.Positional, "Position"):
+            store.addConstraint("pos(%i,%i,%i,%i)" % ((k, v.Positional.Position.vector.x, v.Positional.Position.vector.y, v.Positional.Position.vector.z)))
         if hasattr(v.Positional, "Velocity"):
             store.addConstraint("vel(%i,%i,%i,%i)" % ((k, v.Positional.Velocity.vector.x, v.Positional.Velocity.vector.y, v.Positional.Velocity.vector.z)))
         for child in v.contains:

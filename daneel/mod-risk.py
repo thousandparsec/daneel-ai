@@ -13,11 +13,15 @@ order_colonise(int,int)""".split('\n')
 rules = """adjacentset @ adjacent(A,B) \ adjacent(A,B) <=> pass
 addarmies @ resources(P,1,N,_) ==> armies(P,N)""".split('\n')
 
-def getStart(obj):
+
+def getPos(obj):
     return tuple(obj.Positional.Position.vector)
 
+def getStart(obj):
+    return tuple(obj.Positional.EndA.vector)
+
 def getEnd(obj):
-    return tuple(obj.Informational.Exit.vector)
+    return tuple(obj.Positional.EndB.vector)
 
 def init(cache,rulesystem,connection):
     planets, systems = {}, {}
@@ -27,7 +31,7 @@ def init(cache,rulesystem,connection):
             planets[obj.parent] = obj.id
     for obj in cache.objects.itervalues():
         if obj.subtype == 2:
-            systems[getStart(obj)] = planets[obj.id]
+            systems[getPos(obj)] = planets[obj.id]
     for obj in cache.objects.itervalues():
         if obj.subtype == 5:
             rulesystem.addConstraint("adjacent(%i,%i)"%(systems[getStart(obj)],systems[getEnd(obj)]))
