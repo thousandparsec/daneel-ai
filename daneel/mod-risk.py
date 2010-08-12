@@ -67,7 +67,7 @@ def endTurn(cache,rulesystem,connection):
         orderd = findOrderDesc("Reinforce")
         args = [0, objid, -1, orderd.subtype, 0, [], (amount, 0)]
         order = orderd(*args)
-        orderqueueID = getOrderQueueList(cache,start)[0][1]
+        orderqueueID = getOrderQueueList(cache,objid)[0][1]
         evt = cache.apply("orders","create after",orderqueueID,cache.orders[orderqueueID].head,order)
         if connection != None:
             tp.client.cache.apply(connection,evt,cache)
@@ -78,7 +78,7 @@ def endTurn(cache,rulesystem,connection):
         amount = order.args[1]
         logging.getLogger("daneel.mod-risk").debug("Colonizing %s with %s troops" % (objid,amount))
         orderd = findOrderDesc("Colonize")
-        args = [0, planet, -1, orderd.subtype, 0, [], ([], [(objid, amount)])]
+        args = [0, objid, -1, orderd.subtype, 0, [], ([], [(objid, amount)])]
         o = orderd(*args)
         orderqueueID = getOrderQueueList(cache,start)[0][1]
         evt = cache.apply("orders","create after",orderqueueID,cache.orders[orderqueueID].head,o)
