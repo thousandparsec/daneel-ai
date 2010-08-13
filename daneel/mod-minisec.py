@@ -63,7 +63,7 @@ def orderBuildFleet(id, ships, name):
      Arg name: name    Arg type: String (code:7)    Arg desc: The name of the new fleet being built
     '''
     global rulesystem
-    rulesystem.addConstraint("order_build_fleet(" + str(id) + ", " + str(ships) + ", " + name + ")")
+    rulesystem.addConstraint("order_build_fleet(" + str(id) + ", " + str(ships) + "," + name + ")")
     return
 
 def orderColonise(id):
@@ -263,7 +263,9 @@ def AICode():
     #attack with all fleets without orders
     for fleet in helper.myFleets():
         if not fleet in fleetsWithOrders:
-            orderMove(fleet, helper.position(helper.nearestEnemyPlanet(fleet)))
+            planet = helper.nearestEnemyPlanet(fleet)
+            if planet:
+                orderMove(fleet, helper.position(planet))
       
     #build one frigate or one battleship on every planet
     for myPlanet in helper.myPlanets():
