@@ -49,7 +49,8 @@ def getLastTurnTime(cache, delta=0):
 def startTurn(cache, store, delta=0):
     #last_time = getLastTurnTime(cache,delta)       
     for (k, v) in cache.players.items():
-        store.addConstraint("player(%i,%s)" % (k, v.name))
+        if k != 0:
+            store.addConstraint("player(%i,%s)" % (k, v.name))
         
     store.addConstraint("whoami(%i)" % cache.players[0].id)
     store.addConstraint("turn(%i)" % cache.objects[0].Informational[0][0])
