@@ -207,7 +207,7 @@ class RuleParser:
                     word = ""
                 else:
                     word = word + c
-            args.append(word.strip())
+            args.append(word)
         return (functor,args)
 
     def parseBoundConstraint(self,con):
