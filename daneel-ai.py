@@ -226,7 +226,7 @@ def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,benchmark):
         cache.update(connection,callback)
         # store the cache
         #saveGame(cache)      
-        lastturn = cache.objects[0].Informational[0][0]
+        lastturn = connection.time().turn_num
 
         startTurn(cache,rulesystem,delta)
         rulesystem.addConstraint("cacheentered")
@@ -240,7 +240,7 @@ def gameLoopWrapped(rulesfile,turns,connection,cache,verbosity,benchmark):
         try:
             while lastturn == connection.get_objects(0)[0].Informational[0][0]:
                 waitfor = connection.time()
-                time.sleep(max(1, min(10,waitfor.time / 100)))
+                time.sleep(max(1, min(10, waitfor.time / 100)))
         except IOError:
             print "Connection lost"
             exit(2)
