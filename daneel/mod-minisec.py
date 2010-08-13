@@ -234,39 +234,33 @@ def buildBattleship(planetID):
     orderBuildFleet(planetID, [(helper.designByName("battleship"), 2)], "Battleship Fleet")
 
 def AICode():
+    import random
     print "Now in python mode!"
     global rulesystem
-    
+
     helper.printAboutMe()
     planets = []
-    
-    fleetsWithOrders = []
-    battleshipFleets = []
-    for fleet in helper.myFleets():
+
+    fleetsWithoutOrders = [x for x in helper.myFleets() if not helper.hasOrder(x)]
+    #attack or colonise with all fleets without orders
+    for fleet in fleetsWithoutOrders:
         if helper.name(fleet) == "Battleship Fleet":
-            battleshipFleets.append(fleet)
-    
-    for planet in helper.neutralPlanets():
-        fleet = helper.nearestMyFleet(helper.position(planet),fleetsWithOrders+battleshipFleets)
-        
-        if fleet == None:
-            break
-        
-        if helper.position(fleet) != helper.position(planet):
-            print "moving", helper.name(fleet)
-            orderMove(fleet, helper.position(planet))
-        else:
-            print "colonising", helper.name(fleet)
-            orderColonise(fleet)
-        fleetsWithOrders += [fleet]
-        
-    #attack with all fleets without orders
-    for fleet in helper.myFleets():
-        if not fleet in fleetsWithOrders:
             planet = helper.nearestEnemyPlanet(fleet)
             if planet:
                 orderMove(fleet, helper.position(planet))
-      
+        else:
+            closest = helper.nearestNeutralPlanet(fleet)
+            if closest is None:
+                print "Colonised 'em all!"
+            else:
+                if helper.position(fleet) != helper.position(closest):
+                    planet = random.choice(helper.neutralPlanets() + [closest] * 5)
+                    print "moving", helper.name(fleet)
+                    orderMove(fleet, helper.position(planet))
+                else:
+                    print "colonising", helper.name(fleet)
+                    orderColonise(fleet)
+
     #build one frigate or one battleship on every planet
     for myPlanet in helper.myPlanets():
         if not helper.hasOrder(myPlanet):
